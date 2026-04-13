@@ -6,7 +6,7 @@ describe("createDebouncedCallback", () => {
     vi.useRealTimers();
   });
 
-  it("runs callback once after the delay", () => {
+  it("runs callback once after the delay", async () => {
     vi.useFakeTimers();
     const callback = vi.fn();
     const debounced = createDebouncedCallback(callback, 1000);
@@ -16,7 +16,7 @@ describe("createDebouncedCallback", () => {
     vi.advanceTimersByTime(999);
     expect(callback).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
@@ -30,5 +30,16 @@ describe("createDebouncedCallback", () => {
     vi.advanceTimersByTime(1000);
 
     expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("swallows callback rejections from async callbacks", async () => {
+    vi.useFakeTimers();
+    const callback = vi.fn().mockRejectedValue(new Error("boom"));
+    const debounced = createDebouncedCallback(callback, 1000);
+
+    debounced.schedule();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(callback).toHaveBeenCalledTimes(1);
   });
 });

@@ -12,7 +12,7 @@ export function createDebouncedCallback(
 
       timerId = setTimeout(() => {
         timerId = undefined;
-        void callback();
+        void Promise.resolve().then(callback).catch(() => {});
       }, delayMs);
     },
     cancel() {
