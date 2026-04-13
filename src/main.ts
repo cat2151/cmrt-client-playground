@@ -7,6 +7,7 @@ import {
   parsePositiveInteger,
   sanitizeMmlForPost,
 } from "./post-config.ts";
+import { createDebouncedCallback } from "./debounce.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
@@ -15,6 +16,7 @@ const sendBtn = document.getElementById("send") as HTMLButtonElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
 const TRACK_STORAGE_KEY = "cmrt-client-playground.track";
 const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
+const AUTO_SEND_DELAY_MS = 1000;
 
 function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
@@ -101,10 +103,29 @@ async function sendMml(): Promise<void> {
   }
 }
 
+const debouncedSendMml = createDebouncedCallback(() => {
+  if (!inputEl.value.trim()) {
+    return;
+  }
+
+  return sendMml();
+}, AUTO_SEND_DELAY_MS);
+
 loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
 loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
 trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));
 measureEl.addEventListener("input", () =>
   saveTarget(MEASURE_STORAGE_KEY, measureEl)
 );
-sendBtn.addEventListener("click", sendMml);
+inputEl.addEventListener("input", () => {
+  if (!inputEl.value.trim()) {
+    debouncedSendMml.cancel();
+    return;
+  }
+
+  debouncedSendMml.schedule();
+});
+sendBtn.addEventListener("click", () => {
+  debouncedSendMml.cancel();
+  void sendMml();
+});
