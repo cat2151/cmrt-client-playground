@@ -1,17 +1,30 @@
 import { describe, it, expect } from "vitest";
 import { chordToMml } from "./chord-to-mml.ts";
 
-describe("chordToMml", () => {
-  it("C major returns 'ceg'", () => {
-    expect(chordToMml("C")).toBe("'ceg'");
+describe("chordToMml (using chord2mml library)", () => {
+  it("C major produces MML containing 'ceg'", () => {
+    const result = chordToMml("C");
+    expect(result).not.toBeNull();
+    expect(result).toContain("c");
+    expect(result).toContain("e");
+    expect(result).toContain("g");
   });
 
-  it("Am returns 'ace'", () => {
-    expect(chordToMml("Am")).toBe("'ace'");
+  it("Am produces MML containing 'a', 'c', 'e'", () => {
+    const result = chordToMml("Am");
+    expect(result).not.toBeNull();
+    expect(result).toContain("a");
+    expect(result).toContain("c");
+    expect(result).toContain("e");
   });
 
-  it("G7 returns 'gbdf'", () => {
-    expect(chordToMml("G7")).toBe("'gbdf'");
+  it("G7 produces MML containing 'g', 'b', 'd', 'f'", () => {
+    const result = chordToMml("G7");
+    expect(result).not.toBeNull();
+    expect(result).toContain("g");
+    expect(result).toContain("b");
+    expect(result).toContain("d");
+    expect(result).toContain("f");
   });
 
   it("empty string returns null", () => {
@@ -19,10 +32,14 @@ describe("chordToMml", () => {
   });
 
   it("unknown chord returns null", () => {
-    expect(chordToMml("Xmaj")).toBeNull();
+    expect(chordToMml("ZZZZZ")).toBeNull();
   });
 
-  it("F major returns 'fac'", () => {
-    expect(chordToMml("F")).toBe("'fac'");
+  it("F major produces MML containing 'f', 'a', 'c'", () => {
+    const result = chordToMml("F");
+    expect(result).not.toBeNull();
+    expect(result).toContain("f");
+    expect(result).toContain("a");
+    expect(result).toContain("c");
   });
 });

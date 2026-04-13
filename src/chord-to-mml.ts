@@ -1,118 +1,85 @@
 /**
- * chord-to-mml – コード名をMML文字列に変換する
+ * コード進行テキストをMMLに変換する
+ *
+ * chord2mml ライブラリを利用。自前実装はしない。
+ * SSoT: https://github.com/cat2151/chord2mml
  *
  * 入力例: "C"   → 出力例: "'ceg'"
  * 入力例: "Am"  → 出力例: "'ace'"
  * 入力例: "G7"  → 出力例: "'gbdf'"
- *
- * MMLの和音表記: シングルクォートで囲まれた複数音符が同時発音
  */
 
-/** 音名 → 半音数 (C=0) */
-const NOTE_SEMITONES: Record<string, number> = {
-  C: 0,
-  D: 2,
-  E: 4,
-  F: 5,
-  G: 7,
-  A: 9,
-  B: 11,
-};
+import { parseChordViaLibrary } from "./loaders/chord2mml.ts";
 
-/** 半音数 → MML音名 */
-const SEMITONE_TO_MML: Record<number, string> = {
-  0: "c",
-  1: "c+",
-  2: "d",
-  3: "d+",
-  4: "e",
-  5: "f",
-  6: "f+",
-  7: "g",
-  8: "g+",
-  9: "a",
-  10: "a+",
-  11: "b",
-};
-
-/** 根音の半音数を解析する (例: "C" → 0, "F#" → 6, "Bb" → 10) */
-function parseRoot(chord: string): { root: number; rest: string } | null {
-  if (chord.length === 0) return null;
-  const letter = chord[0].toUpperCase();
-  const semitone = NOTE_SEMITONES[letter];
-  if (semitone === undefined) return null;
-  let offset = 0;
-  let pos = 1;
-  if (pos < chord.length) {
-    if (chord[pos] === "#" || chord[pos] === "+") {
-      offset = 1;
-      pos++;
-    } else if (chord[pos] === "b") {
-      offset = -1;
-      pos++;
-    }
-  }
-  return { root: ((semitone + offset) + 12) % 12, rest: chord.slice(pos) };
+function replaceHyphenToDot(s: string): string {
+  return s.replace(/-/g, "・");
 }
 
-/** コード種別から構成音の半音インターバル配列を返す */
-function chordIntervals(qualifier: string): number[] | null {
-  const q = qualifier.trim();
-  if (q === "" || q === "M" || q === "maj") {
-    // メジャートライアド
-    return [0, 4, 7];
+function replaceMinorRomanNumerals(s: string): string {
+  return s
+    .replace(/\bvii(?![a-zA-Z])/g, "VIIm")
+    .replace(/\biii(?![a-zA-Z])/g, "IIIm")
+    .replace(/\bvi(?![a-zA-Z])/g, "VIm")
+    .replace(/\biv(?![a-zA-Z])/g, "IVm")
+    .replace(/\bii(?![a-zA-Z])/g, "IIm")
+    .replace(/\bv(?![a-zA-Z])/g, "Vm")
+    .replace(/\bi(?![a-zA-Z])/g, "Im");
+}
+
+function permute<T>(arr: T[]): T[][] {
+  if (arr.length <= 1) return [arr];
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+    for (const p of permute(rest)) result.push([arr[i], ...p]);
   }
-  if (q === "m" || q === "min") {
-    // マイナートライアド
-    return [0, 3, 7];
+  return result;
+}
+
+function getAllCombinations<T>(funcs: T[]): T[][] {
+  const results: T[][] = [];
+  const n = funcs.length;
+  for (let i = 0; i < 1 << n; i++) {
+    const seq: T[] = [];
+    for (let j = 0; j < n; j++) {
+      if (i & (1 << j)) seq.push(funcs[j]);
+    }
+    if (seq.length === 0) {
+      // no-op sequence: identity function placeholder
+      results.push([] as T[]);
+    } else {
+      results.push(...permute(seq));
+    }
   }
-  if (q === "7") {
-    // ドミナント7th
-    return [0, 4, 7, 10];
-  }
-  if (q === "m7") {
-    // マイナー7th
-    return [0, 3, 7, 10];
-  }
-  if (q === "maj7" || q === "M7") {
-    // メジャー7th
-    return [0, 4, 7, 11];
-  }
-  if (q === "dim" || q === "°") {
-    // ディミニッシュ
-    return [0, 3, 6];
-  }
-  if (q === "aug" || q === "+") {
-    // オーギュメント
-    return [0, 4, 8];
-  }
-  if (q === "sus4") {
-    return [0, 5, 7];
-  }
-  if (q === "sus2") {
-    return [0, 2, 7];
-  }
-  return null;
+  return results;
 }
 
 /**
- * コード名をMML和音文字列に変換する
+ * コード名をMML文字列に変換する（chord2mml ライブラリを利用）
  * 変換できない場合は null を返す
  */
 export function chordToMml(chord: string): string | null {
   const trimmed = chord.trim();
   if (trimmed === "") return null;
 
-  const parsed = parseRoot(trimmed);
-  if (parsed === null) return null;
-
-  const intervals = chordIntervals(parsed.rest);
-  if (intervals === null) return null;
-
-  const notes = intervals.map((interval) => {
-    const semitone = (parsed.root + interval) % 12;
-    return SEMITONE_TO_MML[semitone];
-  });
-
-  return `'${notes.join("")}'`;
+  // コード記法の方言を正規化して chord2mml が解析できる形式を試す:
+  //   - ハイフン (-) を中点 (・) に変換（例: Am-7 → Am・7）
+  //   - 小文字ローマ数字マイナー表記を大文字+m に統一（例: vi → VIm）
+  const transforms: Array<(s: string) => string> = [
+    replaceHyphenToDot,
+    replaceMinorRomanNumerals,
+  ];
+  const tried = new Set<string>();
+  for (const seq of getAllCombinations(transforms)) {
+    let candidate = trimmed;
+    for (const fn of seq) candidate = fn(candidate);
+    if (tried.has(candidate)) continue;
+    tried.add(candidate);
+    try {
+      return parseChordViaLibrary(candidate);
+    } catch (_e) {
+      // 次の候補を試す
+    }
+  }
+  return null;
 }
