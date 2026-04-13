@@ -1,48 +1,34 @@
 # cmrt-client-playground
 
-シンプルなWebアプリ。コード名（例: C, Am, G7）を入力すると MML に変換し、
-ローカルで起動中の [cmrt (clap-mml-render-tui)](https://github.com/cat2151/clap-mml-render-tui)
-の HTTP API へ POST リクエストを送信します。
+A simple web application. It converts chord names (e.g., C, Am, G7) into MML, then sends a POST request to the HTTP API of [cmrt (clap-mml-render-tui)](https://github.com/cat2151/clap-mml-render-tui) running locally.
 
-## 使い方
+## Usage
 
-1. cmrt.exe を DAW モードで起動する
-2. GitHub Pages にデプロイされた index.html を開く（または `bun run dev` でローカル確認）
-3. textarea に `C` などのコード名を入力し、必要に応じて対象 track / meas を指定して「MML送信」ボタンを押す
-4. ログ欄に POST リクエストの結果が表示される（`v11` など POST 不要な MML トークンを削除した場合も表示）
-5. 指定した track / measure に MML が書き込まれる。track / meas の値は local storage に保存され、次回表示時に復帰される
+1.  Start `cmrt.exe` in DAW mode.
+2.  Open `index.html` deployed on GitHub Pages (or check locally with `bun run dev`).
+3.  Enter a chord name like `C` into the textarea and press the "Send MML" button.
+4.  The result of the POST request will be displayed in the log area.
+5.  MML will be written to track 1 / measure 1 of cmrt.
 
-## 開発
+## Development
 
 ```sh
 bun install
-bun run dev     # 開発サーバー起動
-bun run build   # ビルド
-bun run test    # テスト実行
+bun run dev     # Start development server
+bun run build   # Build
+bun run test    # Run tests
 ```
 
 ## API
 
-`src/daw-client.ts` は Rust 版 daw-client-lib の TypeScript ポートです。
+`src/daw-client.ts` is a TypeScript port of the Rust version of `daw-client-lib`.
 SSoT: https://github.com/cat2151/clap-mml-render-tui/blob/main/daw-client-lib/src/lib.rs
 
-| メソッド | エンドポイント | 説明 |
+| Method | Endpoint | Description |
 |---|---|---|
-| `postMml(track, measure, mml)` | `POST /mml` | MML を指定トラック・小節に書き込む |
-| `postMixer(track, db)` | `POST /mixer` | ミキサーのボリュームを設定する |
-| `postPatch(track, patch)` | `POST /patch` | パッチ（音色）を設定する |
-| `getPatches()` | `GET /patches` | 利用可能なパッチ一覧を取得する |
+| `postMml(track, measure, mml)` | `POST /mml` | Writes MML to the specified track and measure. |
+| `postMixer(track, db)` | `POST /mixer` | Sets the mixer volume. |
+| `postPatch(track, patch)` | `POST /patch` | Sets the patch (timbre/instrument). |
+| `getPatches()` | `GET /patches` | Retrieves a list of available patches. |
 
-デフォルト接続先: `http://127.0.0.1:62151`
-
-## コード → MML 変換例
-
-| コード入力 | 生成 MML |
-|---|---|
-| C | `'ceg'` |
-| Am | `'ace'` |
-| G7 | `'gbdf'` |
-
-## GitHub Pages
-
-`main` ブランチへの push 時に `.github/workflows/deploy.yml` が自動でビルド・デプロイします。
+Default connection target: `http://127.0.0.1:62151`
