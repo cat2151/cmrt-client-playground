@@ -8,7 +8,10 @@ import {
   sanitizeMmlForPost,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
-import { planMeasureInputs } from "./measure-input.ts";
+import {
+  planMeasureInputs,
+  type PreparedMeasureInput,
+} from "./measure-input.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
@@ -84,11 +87,7 @@ async function sendMml(): Promise<void> {
     appendLog(`meas分割開始: ${measureInputs.length} meas を順次送信します`);
   }
 
-  const preparedMeasures: Array<{
-    chord: string;
-    measure: number;
-    sanitizedMml: string;
-  }> = [];
+  const preparedMeasures: PreparedMeasureInput[] = [];
   for (const [index, measureInput] of measureInputs.entries()) {
     if (isMultipleMeasures) {
       appendLog(

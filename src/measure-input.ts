@@ -3,6 +3,10 @@ export interface MeasureInput {
   measure: number;
 }
 
+export interface PreparedMeasureInput extends MeasureInput {
+  sanitizedMml: string;
+}
+
 export function splitInputIntoMeasures(input: string): string[] {
   return input
     .split(/\r?\n/)
