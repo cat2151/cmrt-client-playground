@@ -33,7 +33,7 @@ describe("createDebouncedCallback", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
-  it("swallows callback rejections from async callbacks", async () => {
+  it("logs callback rejections from async callbacks", async () => {
     vi.useFakeTimers();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = vi.fn().mockRejectedValue(new Error("boom"));
@@ -44,5 +44,8 @@ describe("createDebouncedCallback", () => {
 
     expect(callback).toHaveBeenCalledTimes(1);
     expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "boom" })
+    );
   });
 });
