@@ -1,0 +1,77 @@
+name: Sync Vendored Libraries
+
+on:
+  schedule:
+    # 日本時間 09:00 (UTC 00:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-vendor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check and update chord2mml
+        id: chord2mml
+        run: |
+          # ベンダーファイルに記録された SHA を取得
+          RECORDED_SHA=$(grep 'recorded_sha:' src/vendor/chord2mml.mjs | sed 's/.*recorded_sha: //' | tr -d '[:space:]')
+          echo "recorded_sha=${RECORDED_SHA}" >> "$GITHUB_OUTPUT"
+
+          # cat2151/chord2mml の main ブランチ最新コミット SHA を取得
+          CURRENT_SHA=$(curl -fsSL \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/cat2151/chord2mml/commits/main" \
+            | jq -r '.sha')
+          echo "current_sha=${CURRENT_SHA}" >> "$GITHUB_OUTPUT"
+
+          if [ "$RECORDED_SHA" = "$CURRENT_SHA" ]; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            echo "chord2mml is up to date (${CURRENT_SHA})"
+          else
+            echo "updated=true" >> "$GITHUB_OUTPUT"
+            echo "chord2mml needs update: ${RECORDED_SHA} -> ${CURRENT_SHA}"
+
+            # dist/chord2mml.mjs を取得
+            curl -fsSL \
+              -H "Authorization: Bearer ${{ github.token }}" \
+              "https://raw.githubusercontent.com/cat2151/chord2mml/main/dist/chord2mml.mjs" \
+              -o /tmp/chord2mml.mjs
+
+            # プロバナンスヘッダー付きでベンダーファイルを更新
+            {
+              printf '// vendored from https://github.com/cat2151/chord2mml/blob/main/dist/chord2mml.mjs\n'
+              printf '// recorded_sha: %s\n' "$CURRENT_SHA"
+              printf '\n'
+              cat /tmp/chord2mml.mjs
+            } > src/vendor/chord2mml.mjs
+          fi
+
+      - name: Setup Bun
+        if: steps.chord2mml.outputs.updated == 'true'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build and push
+        if: steps.chord2mml.outputs.updated == 'true'
+        env:
+          OLD_SHA: ${{ steps.chord2mml.outputs.recorded_sha }}
+          NEW_SHA: ${{ steps.chord2mml.outputs.current_sha }}
+        run: |
+          set -euo pipefail
+          bun install
+          bun run build
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/vendor/chord2mml.mjs
+
+          git diff --cached --quiet || \
+            git commit -m "chore: update vendored chord2mml ${OLD_SHA} -> ${NEW_SHA}" && \
+            git push
