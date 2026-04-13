@@ -3,12 +3,12 @@ export const DEFAULT_MEASURE = 1;
 
 export function parsePositiveInteger(value: string): number | null {
   const trimmed = value.trim();
-  if (trimmed.length === 0) {
+  if (!/^[1-9]\d*$/.test(trimmed)) {
     return null;
   }
 
-  const parsed = Number(trimmed);
-  if (!Number.isInteger(parsed) || parsed < 1) {
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isSafeInteger(parsed)) {
     return null;
   }
 

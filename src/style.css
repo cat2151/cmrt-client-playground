@@ -50,6 +50,10 @@ button {
   cursor: pointer;
 }
 
+.log-label {
+  margin-top: 1rem;
+}
+
 #log {
   margin-top: 1rem;
   padding: 0.75rem;
