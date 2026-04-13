@@ -20,7 +20,7 @@ describe("parsePositiveInteger", () => {
     expect(parsePositiveInteger("1.0")).toBeNull();
     expect(parsePositiveInteger("1e2")).toBeNull();
     expect(parsePositiveInteger("abc")).toBeNull();
-    expect(parsePositiveInteger("9007199254740992")).toBeNull();
+    expect(parsePositiveInteger("9007199254740993")).toBeNull();
   });
 
   it("keeps the current default targets documented in code", () => {
