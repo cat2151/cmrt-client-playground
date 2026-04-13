@@ -79,13 +79,18 @@ async function sendMml(): Promise<void> {
   }
 
   const measureInputs = planMeasureInputs(input, measure);
-  if (measureInputs.length > 1) {
+  const isMultipleMeasures = measureInputs.length > 1;
+  if (isMultipleMeasures) {
     appendLog(`meas分割開始: ${measureInputs.length} meas を順次送信します`);
   }
 
-  const preparedMeasures = [];
+  const preparedMeasures: Array<{
+    chord: string;
+    measure: number;
+    sanitizedMml: string;
+  }> = [];
   for (const [index, measureInput] of measureInputs.entries()) {
-    if (measureInputs.length > 1) {
+    if (isMultipleMeasures) {
       appendLog(
         `meas分割 ${index + 1}/${measureInputs.length}: "${measureInput.chord}" を meas ${measureInput.measure} に割り当て`
       );
@@ -97,7 +102,7 @@ async function sendMml(): Promise<void> {
       return;
     }
 
-    if (measureInputs.length > 1) {
+    if (isMultipleMeasures) {
       appendLog(
         `meas分割 ${index + 1}/${measureInputs.length}: コード "${measureInput.chord}" → MML: ${mml}`
       );
@@ -107,7 +112,7 @@ async function sendMml(): Promise<void> {
 
     const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
     if (removedTokens.length > 0) {
-      if (measureInputs.length > 1) {
+      if (isMultipleMeasures) {
         appendLog(
           `meas分割 ${index + 1}/${measureInputs.length}: POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
         );
@@ -125,7 +130,7 @@ async function sendMml(): Promise<void> {
   }
 
   for (const [index, preparedMeasure] of preparedMeasures.entries()) {
-    if (measureInputs.length > 1) {
+    if (isMultipleMeasures) {
       appendLog(
         `meas分割 ${index + 1}/${measureInputs.length}: POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
       );
@@ -141,13 +146,13 @@ async function sendMml(): Promise<void> {
       preparedMeasure.sanitizedMml
     );
     if (result === undefined) {
-      if (measureInputs.length > 1) {
+      if (isMultipleMeasures) {
         appendLog(`meas分割 ${index + 1}/${measureInputs.length}: OK`);
       } else {
         appendLog("OK: POSTリクエスト成功");
       }
     } else {
-      if (measureInputs.length > 1) {
+      if (isMultipleMeasures) {
         appendLog(
           `ERROR: meas分割 ${index + 1}/${measureInputs.length}: ${dawClientErrorMessage(result)}`
         );
@@ -158,7 +163,7 @@ async function sendMml(): Promise<void> {
     }
   }
 
-  if (measureInputs.length > 1) {
+  if (isMultipleMeasures) {
     appendLog(`meas分割完了: ${measureInputs.length} meas の送信に成功しました`);
   }
 }
