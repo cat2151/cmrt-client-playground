@@ -112,7 +112,12 @@ async function sendMml(): Promise<void> {
 
     const mml = chordToMml(measureInput.chord);
     if (mml === null) {
-      appendLog(`ERROR: コードを認識できませんでした: "${measureInput.chord}"`);
+      appendMeasureLog(
+        isMultipleMeasures,
+        index,
+        measureInputs.length,
+        `ERROR: meas ${measureInput.measure} のコードを認識できませんでした: "${measureInput.chord}"`
+      );
       return;
     }
 
@@ -162,7 +167,7 @@ async function sendMml(): Promise<void> {
     } else {
       appendLog(
         isMultipleMeasures
-          ? `ERROR: meas分割 ${index + 1}/${measureInputs.length}: ${dawClientErrorMessage(result)}`
+          ? `ERROR: meas分割 ${index + 1}/${measureInputs.length} (measure ${preparedMeasure.measure}): ${dawClientErrorMessage(result)}`
           : `ERROR: ${dawClientErrorMessage(result)}`
       );
       return;
