@@ -8,6 +8,7 @@ import {
   sanitizeMmlForPost,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
+import { planMeasureInputs } from "./measure-input.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
@@ -64,24 +65,10 @@ function getTargetValue(
 }
 
 async function sendMml(): Promise<void> {
-  const chord = inputEl.value.trim();
-  if (!chord) {
+  const input = inputEl.value.trim();
+  if (!input) {
     appendLog("ERROR: 入力が空です");
     return;
-  }
-
-  const mml = chordToMml(chord);
-  if (mml === null) {
-    appendLog(`ERROR: コードを認識できませんでした: "${chord}"`);
-    return;
-  }
-
-  appendLog(`コード "${chord}" → MML: ${mml}`);
-  const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
-  if (removedTokens.length > 0) {
-    appendLog(
-      `POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
-    );
   }
 
   const client = DawClient.localDefault();
@@ -91,15 +78,88 @@ async function sendMml(): Promise<void> {
     return;
   }
 
-  appendLog(
-    `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${measure}, mml: "${sanitizedMml}" }`
-  );
+  const measureInputs = planMeasureInputs(input, measure);
+  if (measureInputs.length > 1) {
+    appendLog(`meas分割開始: ${measureInputs.length} meas を順次送信します`);
+  }
 
-  const result = await client.postMml(track, measure, sanitizedMml);
-  if (result === undefined) {
-    appendLog("OK: POSTリクエスト成功");
-  } else {
-    appendLog(`ERROR: ${dawClientErrorMessage(result)}`);
+  const preparedMeasures = [];
+  for (const [index, measureInput] of measureInputs.entries()) {
+    if (measureInputs.length > 1) {
+      appendLog(
+        `meas分割 ${index + 1}/${measureInputs.length}: "${measureInput.chord}" を meas ${measureInput.measure} に割り当て`
+      );
+    }
+
+    const mml = chordToMml(measureInput.chord);
+    if (mml === null) {
+      appendLog(`ERROR: コードを認識できませんでした: "${measureInput.chord}"`);
+      return;
+    }
+
+    if (measureInputs.length > 1) {
+      appendLog(
+        `meas分割 ${index + 1}/${measureInputs.length}: コード "${measureInput.chord}" → MML: ${mml}`
+      );
+    } else {
+      appendLog(`コード "${measureInput.chord}" → MML: ${mml}`);
+    }
+
+    const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
+    if (removedTokens.length > 0) {
+      if (measureInputs.length > 1) {
+        appendLog(
+          `meas分割 ${index + 1}/${measureInputs.length}: POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
+        );
+      } else {
+        appendLog(
+          `POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
+        );
+      }
+    }
+
+    preparedMeasures.push({
+      ...measureInput,
+      sanitizedMml,
+    });
+  }
+
+  for (const [index, preparedMeasure] of preparedMeasures.entries()) {
+    if (measureInputs.length > 1) {
+      appendLog(
+        `meas分割 ${index + 1}/${measureInputs.length}: POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
+      );
+    } else {
+      appendLog(
+        `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
+      );
+    }
+
+    const result = await client.postMml(
+      track,
+      preparedMeasure.measure,
+      preparedMeasure.sanitizedMml
+    );
+    if (result === undefined) {
+      if (measureInputs.length > 1) {
+        appendLog(`meas分割 ${index + 1}/${measureInputs.length}: OK`);
+      } else {
+        appendLog("OK: POSTリクエスト成功");
+      }
+    } else {
+      if (measureInputs.length > 1) {
+        appendLog(
+          `ERROR: meas分割 ${index + 1}/${measureInputs.length}: ${dawClientErrorMessage(result)}`
+        );
+      } else {
+        appendLog(`ERROR: ${dawClientErrorMessage(result)}`);
+      }
+      return;
+    }
+  }
+
+  if (measureInputs.length > 1) {
+    appendLog(`meas分割完了: ${measureInputs.length} meas の送信に成功しました`);
   }
 }
 
