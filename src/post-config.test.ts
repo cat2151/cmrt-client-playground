@@ -10,6 +10,7 @@ describe("parsePositiveInteger", () => {
   it("accepts positive integers", () => {
     expect(parsePositiveInteger("1")).toBe(1);
     expect(parsePositiveInteger(" 12 ")).toBe(12);
+    expect(parsePositiveInteger("9007199254740991")).toBe(9007199254740991);
   });
 
   it("rejects invalid values", () => {
