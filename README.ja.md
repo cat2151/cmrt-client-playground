@@ -34,15 +34,3 @@ SSoT: https://github.com/cat2151/clap-mml-render-tui/blob/main/daw-client-lib/sr
 | `getPatches()` | `GET /patches` | 利用可能なパッチ一覧を取得する |
 
 デフォルト接続先: `http://127.0.0.1:62151`
-
-## コード → MML 変換例
-
-| コード入力 | 生成 MML |
-|---|---|
-| C | `'ceg'` |
-| Am | `'ace'` |
-| G7 | `'gbdf'` |
-
-## GitHub Pages
-
-`main` ブランチへの push 時に `.github/workflows/deploy.yml` が自動でビルド・デプロイします。
