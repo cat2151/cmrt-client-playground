@@ -4,6 +4,7 @@ import { createDebouncedCallback } from "./debounce.ts";
 describe("createDebouncedCallback", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("runs callback once after the delay", async () => {
@@ -34,6 +35,7 @@ describe("createDebouncedCallback", () => {
 
   it("swallows callback rejections from async callbacks", async () => {
     vi.useFakeTimers();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     const callback = vi.fn().mockRejectedValue(new Error("boom"));
     const debounced = createDebouncedCallback(callback, 1000);
 
@@ -41,5 +43,6 @@ describe("createDebouncedCallback", () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(callback).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledTimes(1);
   });
 });

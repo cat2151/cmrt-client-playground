@@ -12,7 +12,11 @@ export function createDebouncedCallback(
 
       timerId = setTimeout(() => {
         timerId = undefined;
-        void Promise.resolve().then(callback).catch(() => {});
+        void Promise.resolve()
+          .then(callback)
+          .catch((error: unknown) => {
+            console.error(error);
+          });
       }, delayMs);
     },
     cancel() {
