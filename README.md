@@ -8,9 +8,9 @@
 
 1. cmrt.exe を DAW モードで起動する
 2. GitHub Pages にデプロイされた index.html を開く（または `bun run dev` でローカル確認）
-3. textarea に `C` などのコード名を入力して「MML送信」ボタンを押す
-4. ログ欄に POST リクエストの結果が表示される
-5. cmrt の track 1 / measure 1 に MML が書き込まれる
+3. textarea に `C` などのコード名を入力し、必要に応じて対象 track / meas を指定して「MML送信」ボタンを押す
+4. ログ欄に POST リクエストの結果が表示される（`v11` など POST 不要な MML トークンを削除した場合も表示）
+5. 指定した track / measure に MML が書き込まれる。track / meas の値は local storage に保存され、次回表示時に復帰される
 
 ## 開発
 
