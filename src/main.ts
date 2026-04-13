@@ -67,6 +67,20 @@ function getTargetValue(
   return parsed;
 }
 
+function appendMeasureLog(
+  isMultipleMeasures: boolean,
+  index: number,
+  totalMeasures: number,
+  message: string
+): void {
+  if (isMultipleMeasures) {
+    appendLog(`meas分割 ${index + 1}/${totalMeasures}: ${message}`);
+    return;
+  }
+
+  appendLog(message);
+}
+
 async function sendMml(): Promise<void> {
   const input = inputEl.value.trim();
   if (!input) {
@@ -89,11 +103,12 @@ async function sendMml(): Promise<void> {
 
   const preparedMeasures: PreparedMeasureInput[] = [];
   for (const [index, measureInput] of measureInputs.entries()) {
-    if (isMultipleMeasures) {
-      appendLog(
-        `meas分割 ${index + 1}/${measureInputs.length}: "${measureInput.chord}" を meas ${measureInput.measure} に割り当て`
-      );
-    }
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      measureInputs.length,
+      `"${measureInput.chord}" を meas ${measureInput.measure} に割り当て`
+    );
 
     const mml = chordToMml(measureInput.chord);
     if (mml === null) {
@@ -101,25 +116,21 @@ async function sendMml(): Promise<void> {
       return;
     }
 
-    if (isMultipleMeasures) {
-      appendLog(
-        `meas分割 ${index + 1}/${measureInputs.length}: コード "${measureInput.chord}" → MML: ${mml}`
-      );
-    } else {
-      appendLog(`コード "${measureInput.chord}" → MML: ${mml}`);
-    }
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      measureInputs.length,
+      `コード "${measureInput.chord}" → MML: ${mml}`
+    );
 
     const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
     if (removedTokens.length > 0) {
-      if (isMultipleMeasures) {
-        appendLog(
-          `meas分割 ${index + 1}/${measureInputs.length}: POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
-        );
-      } else {
-        appendLog(
-          `POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
-        );
-      }
+      appendMeasureLog(
+        isMultipleMeasures,
+        index,
+        measureInputs.length,
+        `POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
+      );
     }
 
     preparedMeasures.push({
@@ -129,15 +140,12 @@ async function sendMml(): Promise<void> {
   }
 
   for (const [index, preparedMeasure] of preparedMeasures.entries()) {
-    if (isMultipleMeasures) {
-      appendLog(
-        `meas分割 ${index + 1}/${measureInputs.length}: POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
-      );
-    } else {
-      appendLog(
-        `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
-      );
-    }
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      measureInputs.length,
+      `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.sanitizedMml}" }`
+    );
 
     const result = await client.postMml(
       track,
@@ -145,19 +153,18 @@ async function sendMml(): Promise<void> {
       preparedMeasure.sanitizedMml
     );
     if (result === undefined) {
-      if (isMultipleMeasures) {
-        appendLog(`meas分割 ${index + 1}/${measureInputs.length}: OK`);
-      } else {
-        appendLog("OK: POSTリクエスト成功");
-      }
+      appendMeasureLog(
+        isMultipleMeasures,
+        index,
+        measureInputs.length,
+        isMultipleMeasures ? "OK" : "OK: POSTリクエスト成功"
+      );
     } else {
-      if (isMultipleMeasures) {
-        appendLog(
-          `ERROR: meas分割 ${index + 1}/${measureInputs.length}: ${dawClientErrorMessage(result)}`
-        );
-      } else {
-        appendLog(`ERROR: ${dawClientErrorMessage(result)}`);
-      }
+      appendLog(
+        isMultipleMeasures
+          ? `ERROR: meas分割 ${index + 1}/${measureInputs.length}: ${dawClientErrorMessage(result)}`
+          : `ERROR: ${dawClientErrorMessage(result)}`
+      );
       return;
     }
   }
