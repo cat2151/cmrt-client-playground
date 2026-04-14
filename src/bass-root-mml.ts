@@ -13,11 +13,28 @@ export interface SplitMmlByTrack {
   bassMml: string;
 }
 
+function isBassRootPattern(tokens: ParsedNoteToken[]): boolean {
+  if (tokens.length < 2) {
+    return false;
+  }
+
+  const [bassToken, chordRootToken] = tokens;
+  return (
+    bassToken.prefix.includes(">") &&
+    bassToken.lengthText !== "" &&
+    chordRootToken.lengthText === "" &&
+    chordRootToken.dotText === "" &&
+    bassToken.pitch === chordRootToken.pitch
+  );
+}
+
 function parseChordSegmentBody(body: string): ParsedNoteToken[] | null {
   const tokens: ParsedNoteToken[] = [];
   let rest = body;
 
   while (rest !== "") {
+    // prefix: オクターブ移動、note: 音名、accidental: 臨時記号、
+    // lengthText: 音長、dotText: 付点。
     const match = rest.match(
       /^(?<prefix>[<>]*)(?<note>[a-gr])(?<accidental>[+#-]?)(?<lengthText>\d*)(?<dotText>\.*)/i
     );
@@ -51,15 +68,7 @@ export function splitBassRootChordSegment(chordSegment: string): SplitMmlByTrack
 
   const body = chordSegment.slice(1, -1);
   const tokens = parseChordSegmentBody(body);
-  if (
-    tokens === null ||
-    tokens.length < 2 ||
-    !tokens[0].prefix.includes(">") ||
-    tokens[0].lengthText === "" ||
-    tokens[1].lengthText !== "" ||
-    tokens[1].dotText !== "" ||
-    tokens[0].pitch !== tokens[1].pitch
-  ) {
+  if (tokens === null || !isBassRootPattern(tokens)) {
     return { chordMml: chordSegment, bassMml: "" };
   }
 
