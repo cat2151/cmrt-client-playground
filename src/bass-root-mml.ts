@@ -18,6 +18,7 @@ function parseChordSegmentBody(body: string): ParsedNoteToken[] | null {
   let rest = body;
 
   while (rest !== "") {
+    // [<>]*: オクターブ移動、[a-gr][+#-]?: 音名、(\d*): 音長、(\.*): 付点
     const match = rest.match(/^([<>]*)([a-gr])([+#-]?)(\d*)(\.*)/i);
     if (match === null) {
       return null;

@@ -89,6 +89,21 @@ function appendMeasureLog(
   appendLog(message);
 }
 
+function appendPostErrorLog(
+  isMultipleMeasures: boolean,
+  index: number,
+  totalMeasures: number,
+  role: "chord" | "bass",
+  measure: number,
+  errorMessage: string
+): void {
+  appendLog(
+    isMultipleMeasures
+      ? `ERROR: meas分割 ${index + 1}/${totalMeasures} (${role} measure ${measure}): ${errorMessage}`
+      : `ERROR: ${errorMessage}`
+  );
+}
+
 function formatQuarterNotes(durationInQuarterNotes: number): string {
   const rounded = Number(durationInQuarterNotes.toFixed(3));
   return Number.isInteger(rounded) ? `${rounded}` : rounded.toString();
@@ -189,10 +204,13 @@ async function sendMml(): Promise<void> {
       splitMml.chordMml
     );
     if (chordResult !== undefined) {
-      appendLog(
-        isMultipleMeasures
-          ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (chord measure ${preparedMeasure.measure}): ${dawClientErrorMessage(chordResult)}`
-          : `ERROR: ${dawClientErrorMessage(chordResult)}`
+      appendPostErrorLog(
+        isMultipleMeasures,
+        index,
+        preparedMeasures.length,
+        "chord",
+        preparedMeasure.measure,
+        dawClientErrorMessage(chordResult)
       );
       return;
     }
@@ -217,10 +235,13 @@ async function sendMml(): Promise<void> {
         splitMml.bassMml
       );
       if (bassResult !== undefined) {
-        appendLog(
-          isMultipleMeasures
-            ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (bass measure ${targetBassMeasure}): ${dawClientErrorMessage(bassResult)}`
-            : `ERROR: ${dawClientErrorMessage(bassResult)}`
+        appendPostErrorLog(
+          isMultipleMeasures,
+          index,
+          preparedMeasures.length,
+          "bass",
+          targetBassMeasure,
+          dawClientErrorMessage(bassResult)
         );
         return;
       }
