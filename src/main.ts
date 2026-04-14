@@ -215,7 +215,7 @@ async function sendMml(): Promise<void> {
     }
 
     if (splitMml.bassMml !== "") {
-      // chord 側と同じ meas 進行になるよう、bass 開始 meas から index 分だけ進める。
+      // 複数小節分割時は、chord meas と bass meas を同じ index だけ進めて同期させる。
       const targetBassMeasure = bassMeasure + index;
 
       appendMeasureLog(
