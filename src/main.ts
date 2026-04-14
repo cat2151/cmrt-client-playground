@@ -120,31 +120,31 @@ async function sendMml(): Promise<void> {
   const chordSegments = splitSanitizedMmlIntoChordSegments(sanitizedMml);
   if (sanitizedMml !== "" && chordSegments.length === 0) {
     appendLog(
-      `ERROR: meas分割対象のMMLを chord配列 に分解できませんでした: ${sanitizedMml}`
+      `ERROR: meas分割対象のMMLを chord 配列 に分解できませんでした: ${sanitizedMml}`
     );
     return;
   }
 
-  appendLog(`meas分割開始: chord配列 ${chordSegments.length} 要素を解析します`);
+  appendLog(`meas分割開始: chord 配列 ${chordSegments.length} 要素を解析します`);
   for (const [index, chordSegment] of chordSegments.entries()) {
-    appendLog(`chord配列 ${index + 1}/${chordSegments.length}: ${chordSegment}`);
+    appendLog(`chord 配列 ${index + 1}/${chordSegments.length}: ${chordSegment}`);
   }
 
   const parsedChordSegments = parseChordSegments(chordSegments);
   if (parsedChordSegments === null) {
-    appendLog("ERROR: chord配列 の音長を解析できませんでした");
+    appendLog("ERROR: chord 配列の音長を解析できませんでした");
     return;
   }
 
   for (const [index, chordSegment] of parsedChordSegments.entries()) {
     appendLog(
-      `chord配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符 ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} つ分`
+      `chord 配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符 ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} つ分`
     );
   }
 
   const measureChunks = splitChordSegmentsByMeasure(parsedChordSegments);
   if (measureChunks === null) {
-    appendLog("ERROR: chord配列 を 1meas ごとに分割できませんでした");
+    appendLog("ERROR: chord 配列を 1meas ごとに分割できませんでした");
     return;
   }
 

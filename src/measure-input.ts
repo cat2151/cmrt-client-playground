@@ -29,6 +29,7 @@ function getDotMultiplier(dotCount: number): number {
   let multiplier = 1;
   let addition = 0.5;
 
+  // 付点は 1 個で 1/2、2 個目で 1/4... と加算される。
   for (let i = 0; i < dotCount; i++) {
     multiplier += addition;
     addition /= 2;
@@ -86,6 +87,8 @@ export function getChordSegmentDurationInQuarterNotes(
     return null;
   }
 
+  // [<>]*: オクターブ移動, [a-gr]: 音名, [+#-]?: 臨時記号,
+  // (\d+)?: 音長, (\.*): 付点
   const match = body.match(/^[<>]*[a-gr][+#-]?(\d+)?(\.*)/i);
   if (match === null) {
     return null;
