@@ -11,12 +11,20 @@
     <textarea id="input" placeholder="C Am G7"></textarea>
     <div class="target-grid">
       <div>
-        <label for="track">対象 track</label>
+        <label for="track">chord track</label>
         <input id="track" type="number" min="1" step="1" value="1" />
       </div>
       <div>
-        <label for="measure">対象 meas</label>
+        <label for="measure">chord meas</label>
         <input id="measure" type="number" min="1" step="1" value="1" />
+      </div>
+      <div>
+        <label for="bass-track">bass track</label>
+        <input id="bass-track" type="number" min="1" step="1" value="1" />
+      </div>
+      <div>
+        <label for="bass-measure">bass meas</label>
+        <input id="bass-measure" type="number" min="1" step="1" value="1" />
       </div>
     </div>
     <button id="send">MML送信 (POST to cmrt)</button>
