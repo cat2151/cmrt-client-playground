@@ -131,12 +131,14 @@ export function splitChordSegmentsByMeasure(
 
   for (const chordSegment of chordSegments) {
     if (exceedsMeasure(chordSegment.durationInQuarterNotes)) {
+      // 単一の chord segment 自体が 1meas を超える場合は分割できない。
       return null;
     }
 
     const nextDurationInQuarterNotes =
       currentDurationInQuarterNotes + chordSegment.durationInQuarterNotes;
     if (currentChordSegments.length > 0 && exceedsMeasure(nextDurationInQuarterNotes)) {
+      // chord segment を追加すると meas 境界をまたぐ場合は分割できない。
       return null;
     }
 

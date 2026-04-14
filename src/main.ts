@@ -138,7 +138,7 @@ async function sendMml(): Promise<void> {
 
   for (const [index, chordSegment] of parsedChordSegments.entries()) {
     appendLog(
-      `chord配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符 ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} つぶん`
+      `chord配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符 ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} つ分`
     );
   }
 
@@ -159,7 +159,7 @@ async function sendMml(): Promise<void> {
       isMultipleMeasures,
       index,
       preparedMeasures.length,
-      `${preparedMeasure.mml} (合計 四分音符 ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} つぶん) を meas ${preparedMeasure.measure} に割り当て`
+      `${preparedMeasure.mml} (合計 四分音符 ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} つ分) を meas ${preparedMeasure.measure} に割り当て`
     );
   }
 
