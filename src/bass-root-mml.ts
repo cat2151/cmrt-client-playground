@@ -72,11 +72,11 @@ export function splitBassRootChordSegment(chordSegment: string): SplitMmlByTrack
     return { chordMml: chordSegment, bassMml: "" };
   }
 
+  const chordRootWithLength = `${tokens[1].pitch}${tokens[0].lengthText}${tokens[0].dotText}`;
+  const remainingNotes = tokens.slice(2).map((token) => token.raw).join("");
+
   return {
-    chordMml: `'${tokens[1].pitch}${tokens[0].lengthText}${tokens[0].dotText}${tokens
-      .slice(2)
-      .map((token) => token.raw)
-      .join("")}'`,
+    chordMml: `'${chordRootWithLength}${remainingNotes}'`,
     bassMml: `'${tokens[0].raw}'`,
   };
 }
