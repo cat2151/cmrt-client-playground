@@ -18,13 +18,15 @@ function parseChordSegmentBody(body: string): ParsedNoteToken[] | null {
   let rest = body;
 
   while (rest !== "") {
-    // [<>]*: オクターブ移動、[a-gr][+#-]?: 音名、(\d*): 音長、(\.*): 付点
-    const match = rest.match(/^([<>]*)([a-gr])([+#-]?)(\d*)(\.*)/i);
-    if (match === null) {
+    const match = rest.match(
+      /^(?<prefix>[<>]*)(?<note>[a-gr])(?<accidental>[+#-]?)(?<lengthText>\d*)(?<dotText>\.*)/i
+    );
+    if (match?.groups === undefined) {
       return null;
     }
 
-    const [raw, prefix, note, accidental, lengthText, dotText] = match;
+    const raw = match[0];
+    const { prefix, note, accidental, lengthText, dotText } = match.groups;
     if (raw === "") {
       return null;
     }

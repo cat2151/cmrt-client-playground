@@ -183,7 +183,6 @@ async function sendMml(): Promise<void> {
 
   for (const [index, preparedMeasure] of preparedMeasures.entries()) {
     const splitMml = splitBassRootMmlByTrack(preparedMeasure.mml);
-    const targetBassMeasure = bassMeasure + index;
 
     appendMeasureLog(
       isMultipleMeasures,
@@ -216,6 +215,8 @@ async function sendMml(): Promise<void> {
     }
 
     if (splitMml.bassMml !== "") {
+      const targetBassMeasure = bassMeasure + index;
+
       appendMeasureLog(
         isMultipleMeasures,
         index,
