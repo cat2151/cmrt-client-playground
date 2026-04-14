@@ -3,6 +3,7 @@ import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
   formatPostErrorMessage,
+  parseNonNegativeInteger,
   parsePositiveInteger,
   resolveBassTargets,
   sanitizeMmlForPost,
@@ -30,6 +31,24 @@ describe("parsePositiveInteger", () => {
   it("keeps the current default targets documented in code", () => {
     expect(DEFAULT_TRACK).toBe(1);
     expect(DEFAULT_MEASURE).toBe(1);
+  });
+});
+
+describe("parseNonNegativeInteger", () => {
+  it("accepts zero and positive integers", () => {
+    expect(parseNonNegativeInteger("0")).toBe(0);
+    expect(parseNonNegativeInteger(" 12 ")).toBe(12);
+    expect(parseNonNegativeInteger("9007199254740991")).toBe(9007199254740991);
+  });
+
+  it("rejects invalid values", () => {
+    expect(parseNonNegativeInteger("")).toBeNull();
+    expect(parseNonNegativeInteger("-1")).toBeNull();
+    expect(parseNonNegativeInteger("1.5")).toBeNull();
+    expect(parseNonNegativeInteger("1e2")).toBeNull();
+    expect(parseNonNegativeInteger("abc")).toBeNull();
+    expect(parseNonNegativeInteger("9007199254740992")).toBeNull();
+    expect(parseNonNegativeInteger("9007199254740993")).toBeNull();
   });
 });
 

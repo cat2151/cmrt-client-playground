@@ -28,6 +28,7 @@ SSoT: https://github.com/cat2151/clap-mml-render-tui/blob/main/daw-client-lib/sr
 
 | メソッド | エンドポイント | 説明 |
 |---|---|---|
+| `getMml(track, measure)` | `GET /mml?track={track}&measure={measure}` | 指定トラック・小節の MML を取得する |
 | `postMml(track, measure, mml)` | `POST /mml` | MML を指定トラック・小節に書き込む |
 | `postMixer(track, db)` | `POST /mixer` | ミキサーのボリュームを設定する |
 | `postPatch(track, patch)` | `POST /patch` | パッチ（音色）を設定する |

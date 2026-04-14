@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DawClient, dawClientErrorMessage, DEFAULT_BASE_URL } from "./daw-client.ts";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("DawClient.new", () => {
   it("localDefault uses known base url", () => {
@@ -39,5 +43,39 @@ describe("dawClientErrorMessage", () => {
   it("formats invalidResponse error", () => {
     const msg = dawClientErrorMessage({ kind: "invalidResponse", message: "bad json" });
     expect(msg).toContain("bad json");
+  });
+});
+
+describe("DawClient.getMml", () => {
+  it("requests the expected track/measure query and returns mml", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ mml: "@1 l8cde" }),
+      } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMml(2, 0);
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/mml?track=2&measure=0`);
+    expect(result).toBe("@1 l8cde");
+  });
+
+  it("rejects responses without mml", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ track: 2, measure: 0 }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMml(2, 0);
+
+    expect(result).toEqual({
+      kind: "invalidResponse",
+      message: "expected an object with string mml",
+    });
   });
 });
