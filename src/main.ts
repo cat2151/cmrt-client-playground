@@ -8,6 +8,13 @@ import {
   sanitizeMmlForPost,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
+import {
+  assignMeasuresToChunks,
+  parseChordSegments,
+  splitChordSegmentsByMeasure,
+  splitSanitizedMmlIntoChordSegments,
+  type PreparedMeasureInput,
+} from "./measure-input.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
@@ -63,25 +70,30 @@ function getTargetValue(
   return parsed;
 }
 
+function appendMeasureLog(
+  isMultipleMeasures: boolean,
+  index: number,
+  totalMeasures: number,
+  message: string
+): void {
+  if (isMultipleMeasures) {
+    appendLog(`meas分割 ${index + 1}/${totalMeasures}: ${message}`);
+    return;
+  }
+
+  appendLog(message);
+}
+
+function formatQuarterNotes(durationInQuarterNotes: number): string {
+  const rounded = Number(durationInQuarterNotes.toFixed(3));
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toString();
+}
+
 async function sendMml(): Promise<void> {
-  const chord = inputEl.value.trim();
-  if (!chord) {
+  const input = inputEl.value.trim();
+  if (!input) {
     appendLog("ERROR: 入力が空です");
     return;
-  }
-
-  const mml = chordToMml(chord);
-  if (mml === null) {
-    appendLog(`ERROR: コードを認識できませんでした: "${chord}"`);
-    return;
-  }
-
-  appendLog(`コード "${chord}" → MML: ${mml}`);
-  const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
-  if (removedTokens.length > 0) {
-    appendLog(
-      `POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`
-    );
   }
 
   const client = DawClient.localDefault();
@@ -91,15 +103,98 @@ async function sendMml(): Promise<void> {
     return;
   }
 
-  appendLog(
-    `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${measure}, mml: "${sanitizedMml}" }`
-  );
+  const mml = chordToMml(input);
+  if (mml === null) {
+    appendLog(`ERROR: コードを認識できませんでした: "${input}"`);
+    return;
+  }
 
-  const result = await client.postMml(track, measure, sanitizedMml);
-  if (result === undefined) {
-    appendLog("OK: POSTリクエスト成功");
-  } else {
-    appendLog(`ERROR: ${dawClientErrorMessage(result)}`);
+  appendLog(`コード進行 → MML: ${mml}`);
+
+  const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
+  if (removedTokens.length > 0) {
+    appendLog(`POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`);
+  }
+  appendLog(`meas分割対象MML: ${sanitizedMml}`);
+
+  const chordSegments = splitSanitizedMmlIntoChordSegments(sanitizedMml);
+  if (sanitizedMml !== "" && chordSegments.length === 0) {
+    appendLog(
+      `ERROR: meas分割対象のMMLを chord配列 に分解できませんでした: ${sanitizedMml}`
+    );
+    return;
+  }
+
+  appendLog(`meas分割開始: chord配列 ${chordSegments.length} 要素を解析します`);
+  for (const [index, chordSegment] of chordSegments.entries()) {
+    appendLog(`chord配列 ${index + 1}/${chordSegments.length}: ${chordSegment}`);
+  }
+
+  const parsedChordSegments = parseChordSegments(chordSegments);
+  if (parsedChordSegments === null) {
+    appendLog("ERROR: chord配列の音長を解析できませんでした");
+    return;
+  }
+
+  for (const [index, chordSegment] of parsedChordSegments.entries()) {
+    appendLog(
+      `chord配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符換算で ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} 拍`
+    );
+  }
+
+  const measureChunks = splitChordSegmentsByMeasure(parsedChordSegments);
+  if (measureChunks === null) {
+    appendLog("ERROR: chord配列を 1meas ごとに分割できませんでした");
+    return;
+  }
+
+  const preparedMeasures: PreparedMeasureInput[] = assignMeasuresToChunks(
+    measureChunks,
+    measure
+  );
+  const isMultipleMeasures = preparedMeasures.length > 1;
+
+  for (const [index, preparedMeasure] of preparedMeasures.entries()) {
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      preparedMeasures.length,
+      `${preparedMeasure.mml} (合計 四分音符換算で ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} 拍) を meas ${preparedMeasure.measure} に割り当て`
+    );
+  }
+
+  for (const [index, preparedMeasure] of preparedMeasures.entries()) {
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      preparedMeasures.length,
+      `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.mml}" }`
+    );
+
+    const result = await client.postMml(
+      track,
+      preparedMeasure.measure,
+      preparedMeasure.mml
+    );
+    if (result === undefined) {
+      appendMeasureLog(
+        isMultipleMeasures,
+        index,
+        preparedMeasures.length,
+        isMultipleMeasures ? "OK" : "OK: POSTリクエスト成功"
+      );
+    } else {
+      appendLog(
+        isMultipleMeasures
+          ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (measure ${preparedMeasure.measure}): ${dawClientErrorMessage(result)}`
+          : `ERROR: ${dawClientErrorMessage(result)}`
+      );
+      return;
+    }
+  }
+
+  if (isMultipleMeasures) {
+    appendLog(`meas分割完了: ${preparedMeasures.length} meas の送信に成功しました`);
   }
 }
 
