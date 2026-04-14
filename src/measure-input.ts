@@ -88,7 +88,7 @@ export function getChordSegmentDurationInQuarterNotes(
   }
 
   // [<>]*: オクターブ移動, [a-gr]: 音名, [+#-]?: 臨時記号,
-  // (\d+)?: 音長, (\.*): 付点
+  // (\d+)?: 音長（省略時は全音符=1）, (\.*): 付点
   const match = body.match(/^[<>]*[a-gr][+#-]?(\d+)?(\.*)/i);
   if (match === null) {
     return null;
