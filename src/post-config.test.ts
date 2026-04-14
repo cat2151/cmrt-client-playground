@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
+  formatPostErrorMessage,
   parsePositiveInteger,
+  resolveBassTargets,
   sanitizeMmlForPost,
 } from "./post-config.ts";
 
@@ -51,5 +53,39 @@ describe("sanitizeMmlForPost", () => {
       mml: "'ace'",
       removedTokens: [],
     });
+  });
+});
+
+describe("resolveBassTargets", () => {
+  it("falls back to chord targets when bass targets are blank or invalid", () => {
+    expect(resolveBassTargets("", "", { track: 3, measure: 7 })).toEqual({
+      track: 3,
+      measure: 7,
+    });
+    expect(resolveBassTargets("0", "abc", { track: 3, measure: 7 })).toEqual({
+      track: 3,
+      measure: 7,
+    });
+  });
+
+  it("uses explicit bass targets when valid", () => {
+    expect(resolveBassTargets("5", "9", { track: 3, measure: 7 })).toEqual({
+      track: 5,
+      measure: 9,
+    });
+  });
+});
+
+describe("formatPostErrorMessage", () => {
+  it("includes role and measure even for single-measure errors", () => {
+    expect(formatPostErrorMessage(false, 0, 1, "bass", 12, "boom")).toBe(
+      "ERROR (bass measure 12): boom"
+    );
+  });
+
+  it("keeps the split-measure error format", () => {
+    expect(formatPostErrorMessage(true, 1, 4, "chord", 6, "boom")).toBe(
+      "ERROR: meas分割 2/4 (chord measure 6): boom"
+    );
   });
 });

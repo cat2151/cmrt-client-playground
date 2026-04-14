@@ -5,7 +5,9 @@ import { chordToMml } from "./chord-to-mml.ts";
 import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
+  formatPostErrorMessage,
   parsePositiveInteger,
+  resolveBassTargets,
   sanitizeMmlForPost,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
@@ -98,9 +100,14 @@ function appendPostErrorLog(
   errorMessage: string
 ): void {
   appendLog(
-    isMultipleMeasures
-      ? `ERROR: meas分割 ${index + 1}/${totalMeasures} (${role} measure ${measure}): ${errorMessage}`
-      : `ERROR: ${errorMessage}`
+    formatPostErrorMessage(
+      isMultipleMeasures,
+      index,
+      totalMeasures,
+      role,
+      measure,
+      errorMessage
+    )
   );
 }
 
@@ -119,16 +126,13 @@ async function sendMml(): Promise<void> {
   const client = DawClient.localDefault();
   const chordTrack = getTargetValue(trackEl, "chord track");
   const chordMeasure = getTargetValue(measureEl, "chord meas");
-  const bassTrack = getTargetValue(bassTrackEl, "bass track");
-  const bassMeasure = getTargetValue(bassMeasureEl, "bass meas");
-  if (
-    chordTrack === null ||
-    chordMeasure === null ||
-    bassTrack === null ||
-    bassMeasure === null
-  ) {
+  if (chordTrack === null || chordMeasure === null) {
     return;
   }
+  const bassTargets = resolveBassTargets(bassTrackEl.value, bassMeasureEl.value, {
+    track: chordTrack,
+    measure: chordMeasure,
+  });
 
   const mml = chordToMml(input);
   if (mml === null) {
@@ -216,7 +220,7 @@ async function sendMml(): Promise<void> {
 
     if (splitMml.bassMml !== "") {
       // 複数小節分割時は、chord meas と bass meas を同じ index だけ進めて同期させる。
-      const targetBassMeasure = bassMeasure + index;
+      const targetBassMeasure = bassTargets.measure + index;
 
       appendMeasureLog(
         isMultipleMeasures,
@@ -228,11 +232,11 @@ async function sendMml(): Promise<void> {
         isMultipleMeasures,
         index,
         preparedMeasures.length,
-        `POST ${client.getBaseUrl()}/mml  { track: ${bassTrack}, measure: ${targetBassMeasure}, mml: "${splitMml.bassMml}" }`
+        `POST ${client.getBaseUrl()}/mml  { track: ${bassTargets.track}, measure: ${targetBassMeasure}, mml: "${splitMml.bassMml}" }`
       );
 
       const bassResult = await client.postMml(
-        bassTrack,
+        bassTargets.track,
         targetBassMeasure,
         splitMml.bassMml
       );
