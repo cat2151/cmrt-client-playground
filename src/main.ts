@@ -1,4 +1,5 @@
 import "./style.css";
+import { splitBassRootMmlByTrack } from "./bass-root-mml.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import { chordToMml } from "./chord-to-mml.ts";
 import {
@@ -19,10 +20,14 @@ import {
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
 const measureEl = document.getElementById("measure") as HTMLInputElement;
+const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
+const bassMeasureEl = document.getElementById("bass-measure") as HTMLInputElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
 const TRACK_STORAGE_KEY = "cmrt-client-playground.track";
 const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
+const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
+const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
 
 function appendLog(message: string): void {
@@ -97,9 +102,16 @@ async function sendMml(): Promise<void> {
   }
 
   const client = DawClient.localDefault();
-  const track = getTargetValue(trackEl, "track");
-  const measure = getTargetValue(measureEl, "meas");
-  if (track === null || measure === null) {
+  const chordTrack = getTargetValue(trackEl, "chord track");
+  const chordMeasure = getTargetValue(measureEl, "chord meas");
+  const bassTrack = getTargetValue(bassTrackEl, "bass track");
+  const bassMeasure = getTargetValue(bassMeasureEl, "bass meas");
+  if (
+    chordTrack === null ||
+    chordMeasure === null ||
+    bassTrack === null ||
+    bassMeasure === null
+  ) {
     return;
   }
 
@@ -150,47 +162,76 @@ async function sendMml(): Promise<void> {
 
   const preparedMeasures: PreparedMeasureInput[] = assignMeasuresToChunks(
     measureChunks,
-    measure
+    chordMeasure
   );
   const isMultipleMeasures = preparedMeasures.length > 1;
 
   for (const [index, preparedMeasure] of preparedMeasures.entries()) {
+    const splitMml = splitBassRootMmlByTrack(preparedMeasure.mml);
+    const targetBassMeasure = bassMeasure + index;
+
     appendMeasureLog(
       isMultipleMeasures,
       index,
       preparedMeasures.length,
-      `${preparedMeasure.mml} (合計 四分音符換算で ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} 拍) を meas ${preparedMeasure.measure} に割り当て`
+      `${splitMml.chordMml} (合計 四分音符換算で ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} 拍) を chord meas ${preparedMeasure.measure} に割り当て`
     );
-  }
-
-  for (const [index, preparedMeasure] of preparedMeasures.entries()) {
     appendMeasureLog(
       isMultipleMeasures,
       index,
       preparedMeasures.length,
-      `POST ${client.getBaseUrl()}/mml  { track: ${track}, measure: ${preparedMeasure.measure}, mml: "${preparedMeasure.mml}" }`
+      `POST ${client.getBaseUrl()}/mml  { track: ${chordTrack}, measure: ${preparedMeasure.measure}, mml: "${splitMml.chordMml}" }`
     );
 
-    const result = await client.postMml(
-      track,
+    const chordResult = await client.postMml(
+      chordTrack,
       preparedMeasure.measure,
-      preparedMeasure.mml
+      splitMml.chordMml
     );
-    if (result === undefined) {
+    if (chordResult !== undefined) {
+      appendLog(
+        isMultipleMeasures
+          ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (chord measure ${preparedMeasure.measure}): ${dawClientErrorMessage(chordResult)}`
+          : `ERROR: ${dawClientErrorMessage(chordResult)}`
+      );
+      return;
+    }
+
+    if (splitMml.bassMml !== "") {
       appendMeasureLog(
         isMultipleMeasures,
         index,
         preparedMeasures.length,
-        isMultipleMeasures ? "OK" : "OK: POSTリクエスト成功"
+        `${splitMml.bassMml} を bass meas ${targetBassMeasure} に割り当て`
       );
-    } else {
-      appendLog(
-        isMultipleMeasures
-          ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (measure ${preparedMeasure.measure}): ${dawClientErrorMessage(result)}`
-          : `ERROR: ${dawClientErrorMessage(result)}`
+      appendMeasureLog(
+        isMultipleMeasures,
+        index,
+        preparedMeasures.length,
+        `POST ${client.getBaseUrl()}/mml  { track: ${bassTrack}, measure: ${targetBassMeasure}, mml: "${splitMml.bassMml}" }`
       );
-      return;
+
+      const bassResult = await client.postMml(
+        bassTrack,
+        targetBassMeasure,
+        splitMml.bassMml
+      );
+      if (bassResult !== undefined) {
+        appendLog(
+          isMultipleMeasures
+            ? `ERROR: meas分割 ${index + 1}/${preparedMeasures.length} (bass measure ${targetBassMeasure}): ${dawClientErrorMessage(bassResult)}`
+            : `ERROR: ${dawClientErrorMessage(bassResult)}`
+        );
+        return;
+      }
     }
+
+    appendMeasureLog(
+      isMultipleMeasures,
+      index,
+      preparedMeasures.length,
+      isMultipleMeasures ? "OK" : "OK: POSTリクエスト成功"
+    );
   }
 
   if (isMultipleMeasures) {
@@ -208,9 +249,17 @@ const debouncedSendMml = createDebouncedCallback(() => {
 
 loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
 loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
+loadStoredTarget(BASS_TRACK_STORAGE_KEY, DEFAULT_TRACK, bassTrackEl);
+loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));
 measureEl.addEventListener("input", () =>
   saveTarget(MEASURE_STORAGE_KEY, measureEl)
+);
+bassTrackEl.addEventListener("input", () =>
+  saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl)
+);
+bassMeasureEl.addEventListener("input", () =>
+  saveTarget(BASS_MEASURE_STORAGE_KEY, bassMeasureEl)
 );
 inputEl.addEventListener("input", () => {
   if (!inputEl.value.trim()) {
