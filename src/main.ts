@@ -40,6 +40,8 @@ const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
 const GRID_GET_CONCURRENCY = 8;
+const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
+const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
 
 interface MeasureGridConfig {
   trackStart: number;
@@ -167,10 +169,25 @@ function setMeasureGridCellStatus(
   status: "idle" | "loading" | "syncing" | "error",
   title = ""
 ): void {
+  const isBusy = status === "loading" || status === "syncing";
+  const isInvalid = status === "error";
+
   input.classList.toggle("measure-grid-cell--loading", status === "loading");
   input.classList.toggle("measure-grid-cell--syncing", status === "syncing");
-  input.classList.toggle("measure-grid-cell--error", status === "error");
+  input.classList.toggle("measure-grid-cell--error", isInvalid);
   input.title = title;
+
+  if (isBusy) {
+    input.setAttribute("aria-busy", "true");
+  } else {
+    input.removeAttribute("aria-busy");
+  }
+
+  if (isInvalid) {
+    input.setAttribute("aria-invalid", "true");
+  } else {
+    input.removeAttribute("aria-invalid");
+  }
 }
 
 function cancelMeasureGridSyncers(): void {
@@ -302,32 +319,65 @@ function applyMeasureGridConfig(config: MeasureGridConfig): void {
   renderMeasureGrid();
 }
 
-function ensureMeasureGridIncludes(track: number, measure: number): void {
+function ensureMeasureGridIncludes(track: number, measure: number): boolean {
   let nextConfig = measureGridConfig;
 
   if (track < nextConfig.trackStart) {
+    const expandedTrackCount = nextConfig.trackCount + (nextConfig.trackStart - track);
+    if (expandedTrackCount > MAX_AUTO_EXPANDED_TRACK_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: track ${track} を表示するには ${expandedTrackCount} tracks が必要です。grid track start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
     nextConfig = {
       ...nextConfig,
-      trackCount: nextConfig.trackCount + (nextConfig.trackStart - track),
+      trackCount: expandedTrackCount,
       trackStart: track,
     };
   } else if (track >= nextConfig.trackStart + nextConfig.trackCount) {
+    const expandedTrackCount = track - nextConfig.trackStart + 1;
+    if (expandedTrackCount > MAX_AUTO_EXPANDED_TRACK_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: track ${track} を表示するには ${expandedTrackCount} tracks が必要です。grid track start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
     nextConfig = {
       ...nextConfig,
-      trackCount: track - nextConfig.trackStart + 1,
+      trackCount: expandedTrackCount,
     };
   }
 
   if (measure < nextConfig.measureStart) {
+    const expandedMeasureCount =
+      nextConfig.measureCount + (nextConfig.measureStart - measure);
+    if (expandedMeasureCount > MAX_AUTO_EXPANDED_MEASURE_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: meas ${measure} を表示するには ${expandedMeasureCount} meas が必要です。grid meas start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
     nextConfig = {
       ...nextConfig,
-      measureCount: nextConfig.measureCount + (nextConfig.measureStart - measure),
+      measureCount: expandedMeasureCount,
       measureStart: measure,
     };
   } else if (measure >= nextConfig.measureStart + nextConfig.measureCount) {
+    const expandedMeasureCount = measure - nextConfig.measureStart + 1;
+    if (expandedMeasureCount > MAX_AUTO_EXPANDED_MEASURE_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: meas ${measure} を表示するには ${expandedMeasureCount} meas が必要です。grid meas start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
     nextConfig = {
       ...nextConfig,
-      measureCount: measure - nextConfig.measureStart + 1,
+      measureCount: expandedMeasureCount,
     };
   }
 
@@ -339,14 +389,30 @@ function ensureMeasureGridIncludes(track: number, measure: number): void {
   ) {
     applyMeasureGridConfig(nextConfig);
   }
+
+  return true;
 }
 
 function reflectMeasureGridValue(track: number, measure: number, mml: string): void {
-  ensureMeasureGridIncludes(track, measure);
+  const didIncludeTarget = ensureMeasureGridIncludes(track, measure);
 
   const key = getMeasureGridCellKey(track, measure);
-  measureGridValues.set(key, mml);
   const input = measureGridInputs.get(key);
+  if (input?.dataset.dirty === "true") {
+    setMeasureGridCellStatus(
+      input,
+      "idle",
+      `web側の結果 ${track}:${measure} は、未送信の編集があるため上書きをスキップ`
+    );
+    return;
+  }
+
+  measureGridValues.set(key, mml);
+
+  if (!didIncludeTarget) {
+    return;
+  }
+
   if (input === undefined) {
     return;
   }

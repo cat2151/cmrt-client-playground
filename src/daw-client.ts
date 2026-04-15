@@ -57,11 +57,25 @@ function normalizeBaseUrl(baseUrl: string): string | DawClientError {
 }
 
 function isDawClientError(data: unknown): data is DawClientError {
-  if (typeof data !== "object" || data === null || !("kind" in data)) {
+  if (typeof data !== "object" || data === null) {
     return false;
   }
 
-  return typeof data.kind === "string";
+  const candidate = data as Record<string, unknown>;
+
+  switch (candidate.kind) {
+    case "emptyBaseUrl":
+      return true;
+    case "http":
+      return (
+        typeof candidate.status === "number" && typeof candidate.body === "string"
+      );
+    case "transport":
+    case "invalidResponse":
+      return typeof candidate.message === "string";
+    default:
+      return false;
+  }
 }
 
 export class DawClient {
@@ -118,14 +132,14 @@ export class DawClient {
       return data;
     }
 
-    if (!Array.isArray(data)) {
+    if (!Array.isArray(data) || !data.every((patch) => typeof patch === "string")) {
       return {
         kind: "invalidResponse",
         message: "expected an array of strings",
       };
     }
 
-    return data as string[];
+    return data;
   }
 
   async getMml(track: number, measure: number): Promise<string | DawClientError> {

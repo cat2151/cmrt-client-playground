@@ -78,4 +78,35 @@ describe("DawClient.getMml", () => {
       message: "expected an object with string mml",
     });
   });
+
+  it("does not treat regular payloads with a kind field as a DawClientError", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ mml: "@1 l8cde", kind: "lead" }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMml(2, 0);
+
+    expect(result).toBe("@1 l8cde");
+  });
+});
+
+describe("DawClient.getPatches", () => {
+  it("rejects mixed arrays", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ["Pads/Factory Pad.fxp", 1],
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getPatches();
+
+    expect(result).toEqual({
+      kind: "invalidResponse",
+      message: "expected an array of strings",
+    });
+  });
 });
