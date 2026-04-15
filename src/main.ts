@@ -475,16 +475,15 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
 }
 
 async function autoSelectTracksFromCmrt(): Promise<void> {
-  const scanResults = await Promise.all(
-    Array.from({ length: AUTO_TARGET_TRACK_SCAN_LIMIT }, (_, index) =>
-      dawClient.getMeasureInfo(index + 1, INIT_MEASURE)
-    )
-  );
-  const candidates = scanResults.flatMap((result, index) =>
-    typeof result === "object" && "kind" in result
-      ? []
-      : [{ track: index + 1, filterName: result.filterName }]
-  );
+  const candidates = [];
+  for (let track = 1; track <= AUTO_TARGET_TRACK_SCAN_LIMIT; track += 1) {
+    const result = await dawClient.getMeasureInfo(track, INIT_MEASURE);
+    if (typeof result === "object" && "kind" in result) {
+      break;
+    }
+
+    candidates.push({ track, filterName: result.filterName });
+  }
   const selection = selectAutoTargetTracks(candidates);
 
   if (selection.chordTrack !== null) {
@@ -498,8 +497,12 @@ async function autoSelectTracksFromCmrt(): Promise<void> {
   }
 
   if (selection.chordTrack !== null || selection.bassTrack !== null) {
+    const selectedTargets = [
+      selection.chordTrack === null ? null : `chord track=${selection.chordTrack}`,
+      selection.bassTrack === null ? null : `bass track=${selection.bassTrack}`,
+    ].filter((value) => value !== null);
     appendLog(
-      `起動時に track を自動選択: chord track=${trackEl.value}, bass track=${bassTrackEl.value}`
+      `起動時に track を自動選択: ${selectedTargets.join(", ")}`
     );
   }
 }
