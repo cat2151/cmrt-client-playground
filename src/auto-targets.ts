@@ -9,7 +9,7 @@ export interface AutoTargetSelection {
 }
 
 function hasKeyword(filterName: string | null, keyword: string): boolean {
-  return filterName?.toLocaleLowerCase().includes(keyword) ?? false;
+  return filterName?.toLowerCase().includes(keyword) ?? false;
 }
 
 export function selectAutoTargetTracks(
