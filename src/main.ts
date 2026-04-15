@@ -394,11 +394,16 @@ function ensureMeasureGridIncludes(track: number, measure: number): boolean {
 }
 
 function reflectMeasureGridValue(track: number, measure: number, mml: string): void {
-  const didIncludeTarget = ensureMeasureGridIncludes(track, measure);
+  ensureMeasureGridIncludes(track, measure);
 
   const key = getMeasureGridCellKey(track, measure);
   const input = measureGridInputs.get(key);
-  if (input?.dataset.dirty === "true") {
+  if (input === undefined) {
+    measureGridValues.set(key, mml);
+    return;
+  }
+
+  if (input.dataset.dirty === "true") {
     setMeasureGridCellStatus(
       input,
       "idle",
@@ -408,15 +413,6 @@ function reflectMeasureGridValue(track: number, measure: number, mml: string): v
   }
 
   measureGridValues.set(key, mml);
-
-  if (!didIncludeTarget) {
-    return;
-  }
-
-  if (input === undefined) {
-    return;
-  }
-
   input.value = mml;
   input.dataset.dirty = "false";
   setMeasureGridCellStatus(input, "idle", `web側の結果を ${track}:${measure} に反映済み`);
