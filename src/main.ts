@@ -408,11 +408,7 @@ function reflectMeasureGridValue(track: number, measure: number, mml: string): v
   }
 
   if (input.dataset.dirty === "true") {
-    setMeasureGridCellStatus(
-      input,
-      "idle",
-      `web側の結果 ${track}:${measure} は、未送信の編集があるため上書きをスキップ`
-    );
+    input.title = `web側の結果 ${track}:${measure} は、未送信の編集があるため上書きをスキップ`;
     return;
   }
 
