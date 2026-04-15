@@ -28,6 +28,36 @@
       </div>
     </div>
     <button id="send">MML送信 (POST to cmrt)</button>
+    <section class="measure-grid-panel" aria-labelledby="measure-grid-heading">
+      <div class="measure-grid-toolbar">
+        <h2 id="measure-grid-heading">cmrt meas grid</h2>
+        <button id="grid-reload" type="button">cmrtから再読込 (GET)</button>
+      </div>
+      <div class="target-grid measure-grid-targets">
+        <div>
+          <label for="grid-track-start">grid track start</label>
+          <input id="grid-track-start" type="number" min="1" step="1" value="1" />
+        </div>
+        <div>
+          <label for="grid-track-count">grid track count</label>
+          <input id="grid-track-count" type="number" min="1" step="1" value="4" />
+        </div>
+        <div>
+          <label for="grid-measure-start">grid meas start</label>
+          <input id="grid-measure-start" type="number" min="0" step="1" value="0" />
+        </div>
+        <div>
+          <label for="grid-measure-count">grid meas count</label>
+          <input id="grid-measure-count" type="number" min="1" step="1" value="8" />
+        </div>
+      </div>
+      <div class="measure-grid-scroll">
+        <table class="measure-grid-table">
+          <thead id="measure-grid-head"></thead>
+          <tbody id="measure-grid-body"></tbody>
+        </table>
+      </div>
+    </section>
     <label class="log-label" for="log">ログ</label>
     <div id="log"></div>
     <p class="footer">

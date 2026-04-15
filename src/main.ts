@@ -6,6 +6,7 @@ import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
   formatPostErrorMessage,
+  parseNonNegativeInteger,
   parsePositiveInteger,
   resolveBassTargets,
   sanitizeMmlForPost,
@@ -25,12 +26,44 @@ const measureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
 const bassMeasureEl = document.getElementById("bass-measure") as HTMLInputElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
+const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
+const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
+const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
+const gridMeasureCountEl = document.getElementById("grid-measure-count") as HTMLInputElement;
+const gridReloadBtn = document.getElementById("grid-reload") as HTMLButtonElement;
+const measureGridHeadEl = document.getElementById("measure-grid-head") as HTMLTableSectionElement;
+const measureGridBodyEl = document.getElementById("measure-grid-body") as HTMLTableSectionElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
 const TRACK_STORAGE_KEY = "cmrt-client-playground.track";
 const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
+const GRID_GET_CONCURRENCY = 8;
+const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
+const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
+
+interface MeasureGridConfig {
+  trackStart: number;
+  trackCount: number;
+  measureStart: number;
+  measureCount: number;
+}
+
+const measureGridValues = new Map<string, string>();
+const measureGridInputs = new Map<string, HTMLInputElement>();
+const measureGridSyncers = new Map<
+  string,
+  ReturnType<typeof createDebouncedCallback>
+>();
+const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
+  trackStart: 1,
+  trackCount: 4,
+  measureStart: 0,
+  measureCount: 8,
+};
+const dawClient = DawClient.localDefault();
+let measureGridConfig: MeasureGridConfig = { ...DEFAULT_MEASURE_GRID_CONFIG };
 
 function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
@@ -116,6 +149,328 @@ function formatQuarterNotes(durationInQuarterNotes: number): string {
   return Number.isInteger(rounded) ? `${rounded}` : rounded.toString();
 }
 
+function getMeasureGridCellKey(track: number, measure: number): string {
+  return `${track}:${measure}`;
+}
+
+function getVisibleTracks(config: MeasureGridConfig): number[] {
+  return Array.from({ length: config.trackCount }, (_, index) => config.trackStart + index);
+}
+
+function getVisibleMeasures(config: MeasureGridConfig): number[] {
+  return Array.from(
+    { length: config.measureCount },
+    (_, index) => config.measureStart + index
+  );
+}
+
+function setMeasureGridCellStatus(
+  input: HTMLInputElement,
+  status: "idle" | "loading" | "syncing" | "error",
+  title = ""
+): void {
+  const isBusy = status === "loading" || status === "syncing";
+  const isInvalid = status === "error";
+
+  input.classList.toggle("measure-grid-cell--loading", status === "loading");
+  input.classList.toggle("measure-grid-cell--syncing", status === "syncing");
+  input.classList.toggle("measure-grid-cell--error", isInvalid);
+  input.title = title;
+
+  if (isBusy) {
+    input.setAttribute("aria-busy", "true");
+  } else {
+    input.removeAttribute("aria-busy");
+  }
+
+  if (isInvalid) {
+    input.setAttribute("aria-invalid", "true");
+  } else {
+    input.removeAttribute("aria-invalid");
+  }
+}
+
+function cancelMeasureGridSyncers(): void {
+  for (const syncer of measureGridSyncers.values()) {
+    syncer.cancel();
+  }
+  measureGridSyncers.clear();
+}
+
+function syncMeasureGridControls(config: MeasureGridConfig): void {
+  gridTrackStartEl.value = String(config.trackStart);
+  gridTrackCountEl.value = String(config.trackCount);
+  gridMeasureStartEl.value = String(config.measureStart);
+  gridMeasureCountEl.value = String(config.measureCount);
+}
+
+function readMeasureGridConfigFromControls(): MeasureGridConfig | null {
+  const trackStart = parsePositiveInteger(gridTrackStartEl.value);
+  if (trackStart === null) {
+    appendLog("ERROR: grid track start には 1 以上の整数を指定してください");
+    return null;
+  }
+
+  const trackCount = parsePositiveInteger(gridTrackCountEl.value);
+  if (trackCount === null) {
+    appendLog("ERROR: grid track count には 1 以上の整数を指定してください");
+    return null;
+  }
+
+  const measureStart = parseNonNegativeInteger(gridMeasureStartEl.value);
+  if (measureStart === null) {
+    appendLog("ERROR: grid meas start には 0 以上の整数を指定してください");
+    return null;
+  }
+
+  const measureCount = parsePositiveInteger(gridMeasureCountEl.value);
+  if (measureCount === null) {
+    appendLog("ERROR: grid meas count には 1 以上の整数を指定してください");
+    return null;
+  }
+
+  return { trackStart, trackCount, measureStart, measureCount };
+}
+
+function renderMeasureGrid(): void {
+  cancelMeasureGridSyncers();
+  measureGridInputs.clear();
+  measureGridHeadEl.textContent = "";
+  measureGridBodyEl.textContent = "";
+
+  const visibleMeasures = getVisibleMeasures(measureGridConfig);
+  const headRow = document.createElement("tr");
+  const cornerCell = document.createElement("th");
+  cornerCell.textContent = "track \\ meas";
+  headRow.append(cornerCell);
+
+  for (const measure of visibleMeasures) {
+    const measureCell = document.createElement("th");
+    measureCell.scope = "col";
+    measureCell.textContent = String(measure);
+    headRow.append(measureCell);
+  }
+
+  measureGridHeadEl.append(headRow);
+
+  for (const track of getVisibleTracks(measureGridConfig)) {
+    const row = document.createElement("tr");
+    const rowHeader = document.createElement("th");
+    rowHeader.scope = "row";
+    rowHeader.textContent = `track ${track}`;
+    row.append(rowHeader);
+
+    for (const measure of visibleMeasures) {
+      const cell = document.createElement("td");
+      const input = document.createElement("input");
+      const key = getMeasureGridCellKey(track, measure);
+      const syncer = createDebouncedCallback(async () => {
+        setMeasureGridCellStatus(
+          input,
+          "syncing",
+          `POST ${track}:${measure} を cmrt と同期中`
+        );
+
+        const result = await dawClient.postMml(track, measure, input.value);
+        if (result !== undefined) {
+          const errorMessage = dawClientErrorMessage(result);
+          setMeasureGridCellStatus(input, "error", errorMessage);
+          appendLog(
+            `ERROR: grid POST ${track}:${measure} に失敗しました: ${errorMessage}`
+          );
+          return;
+        }
+
+        measureGridValues.set(key, input.value);
+        input.dataset.dirty = "false";
+        setMeasureGridCellStatus(input, "idle", `POST ${track}:${measure} OK`);
+        appendLog(`grid POST ${track}:${measure} OK: "${input.value}"`);
+      }, AUTO_SEND_DELAY_MS);
+
+      input.className = "measure-grid-cell";
+      input.type = "text";
+      input.value = measureGridValues.get(key) ?? "";
+      input.dataset.dirty = "false";
+      input.setAttribute("aria-label", `track ${track} measure ${measure}`);
+      input.addEventListener("input", () => {
+        measureGridValues.set(key, input.value);
+        input.dataset.dirty = "true";
+        setMeasureGridCellStatus(
+          input,
+          "syncing",
+          `POST ${track}:${measure} を予約しました`
+        );
+        syncer.schedule();
+      });
+
+      measureGridInputs.set(key, input);
+      measureGridSyncers.set(key, syncer);
+      cell.append(input);
+      row.append(cell);
+    }
+
+    measureGridBodyEl.append(row);
+  }
+}
+
+function applyMeasureGridConfig(config: MeasureGridConfig): void {
+  measureGridConfig = config;
+  syncMeasureGridControls(config);
+  renderMeasureGrid();
+}
+
+function ensureMeasureGridIncludes(track: number, measure: number): boolean {
+  let nextConfig = measureGridConfig;
+
+  if (track < nextConfig.trackStart) {
+    const expandedTrackCount = nextConfig.trackCount + (nextConfig.trackStart - track);
+    if (expandedTrackCount > MAX_AUTO_EXPANDED_TRACK_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: track ${track} を表示するには ${expandedTrackCount} tracks が必要です。grid track start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
+    nextConfig = {
+      ...nextConfig,
+      trackCount: expandedTrackCount,
+      trackStart: track,
+    };
+  } else if (track >= nextConfig.trackStart + nextConfig.trackCount) {
+    const expandedTrackCount = track - nextConfig.trackStart + 1;
+    if (expandedTrackCount > MAX_AUTO_EXPANDED_TRACK_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: track ${track} を表示するには ${expandedTrackCount} tracks が必要です。grid track start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
+    nextConfig = {
+      ...nextConfig,
+      trackCount: expandedTrackCount,
+    };
+  }
+
+  if (measure < nextConfig.measureStart) {
+    const expandedMeasureCount =
+      nextConfig.measureCount + (nextConfig.measureStart - measure);
+    if (expandedMeasureCount > MAX_AUTO_EXPANDED_MEASURE_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: meas ${measure} を表示するには ${expandedMeasureCount} meas が必要です。grid meas start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
+    nextConfig = {
+      ...nextConfig,
+      measureCount: expandedMeasureCount,
+      measureStart: measure,
+    };
+  } else if (measure >= nextConfig.measureStart + nextConfig.measureCount) {
+    const expandedMeasureCount = measure - nextConfig.measureStart + 1;
+    if (expandedMeasureCount > MAX_AUTO_EXPANDED_MEASURE_COUNT) {
+      appendLog(
+        `grid 自動拡張をスキップ: meas ${measure} を表示するには ${expandedMeasureCount} meas が必要です。grid meas start/count を明示的に変更してください`
+      );
+      return false;
+    }
+
+    nextConfig = {
+      ...nextConfig,
+      measureCount: expandedMeasureCount,
+    };
+  }
+
+  if (
+    nextConfig.trackStart !== measureGridConfig.trackStart ||
+    nextConfig.trackCount !== measureGridConfig.trackCount ||
+    nextConfig.measureStart !== measureGridConfig.measureStart ||
+    nextConfig.measureCount !== measureGridConfig.measureCount
+  ) {
+    applyMeasureGridConfig(nextConfig);
+  }
+
+  return true;
+}
+
+function reflectMeasureGridValue(track: number, measure: number, mml: string): void {
+  const key = getMeasureGridCellKey(track, measure);
+  const didIncludeTarget = ensureMeasureGridIncludes(track, measure);
+  if (!didIncludeTarget) {
+    measureGridValues.set(key, mml);
+    return;
+  }
+
+  const input = measureGridInputs.get(key);
+  if (input === undefined) {
+    measureGridValues.set(key, mml);
+    return;
+  }
+
+  if (input.dataset.dirty === "true") {
+    input.title = `web側の結果 ${track}:${measure} は、未送信の編集があるため上書きをスキップ`;
+    appendLog(
+      `grid 反映をスキップ: ${track}:${measure} には未送信の編集があるため web側の結果を上書きしません`
+    );
+    return;
+  }
+
+  measureGridValues.set(key, mml);
+  input.value = mml;
+  input.dataset.dirty = "false";
+  setMeasureGridCellStatus(input, "idle", `web側の結果を ${track}:${measure} に反映済み`);
+}
+
+async function loadMeasureGridFromCmrt(): Promise<void> {
+  const visibleTracks = getVisibleTracks(measureGridConfig);
+  const visibleMeasures = getVisibleMeasures(measureGridConfig);
+  const totalCells = visibleTracks.length * visibleMeasures.length;
+  const lastTrack = visibleTracks[visibleTracks.length - 1];
+  const lastMeasure = visibleMeasures[visibleMeasures.length - 1];
+
+  appendLog(
+    `grid GET開始: track ${visibleTracks[0]}-${lastTrack} / meas ${visibleMeasures[0]}-${lastMeasure}`
+  );
+
+  let okCount = 0;
+  const cellTargets = visibleTracks.flatMap((track) =>
+    visibleMeasures.map((measure) => ({ track, measure }))
+  );
+
+  for (let index = 0; index < cellTargets.length; index += GRID_GET_CONCURRENCY) {
+    const chunk = cellTargets.slice(index, index + GRID_GET_CONCURRENCY);
+    await Promise.all(
+      chunk.map(async ({ track, measure }) => {
+        const key = getMeasureGridCellKey(track, measure);
+        const input = measureGridInputs.get(key);
+        if (input === undefined) {
+          return;
+        }
+
+        setMeasureGridCellStatus(input, "loading", `GET ${track}:${measure} を読み込み中`);
+        const result = await dawClient.getMml(track, measure);
+        if (measureGridInputs.get(key) !== input) {
+          return;
+        }
+
+        if (typeof result !== "string") {
+          setMeasureGridCellStatus(input, "error", dawClientErrorMessage(result));
+          return;
+        }
+
+        measureGridValues.set(key, result);
+        if (input.dataset.dirty !== "true") {
+          input.value = result;
+        }
+        setMeasureGridCellStatus(input, "idle", `GET ${track}:${measure} OK`);
+        okCount += 1;
+      })
+    );
+  }
+
+  appendLog(`grid GET完了: ${okCount}/${totalCells} セル同期`);
+}
+
 async function sendMml(): Promise<void> {
   const input = inputEl.value.trim();
   if (!input) {
@@ -123,7 +478,7 @@ async function sendMml(): Promise<void> {
     return;
   }
 
-  const client = DawClient.localDefault();
+  const client = dawClient;
   const chordTrack = getTargetValue(trackEl, "chord track");
   const chordMeasure = getTargetValue(measureEl, "chord meas");
   if (chordTrack === null || chordMeasure === null) {
@@ -218,6 +573,8 @@ async function sendMml(): Promise<void> {
       return;
     }
 
+    reflectMeasureGridValue(chordTrack, preparedMeasure.measure, splitMml.chordMml);
+
     if (splitMml.bassMml !== "") {
       // 複数小節分割時は、chord meas と bass meas を同じ index だけ進めて同期させる。
       const targetBassMeasure = bassTargets.measure + index;
@@ -251,6 +608,8 @@ async function sendMml(): Promise<void> {
         );
         return;
       }
+
+      reflectMeasureGridValue(bassTargets.track, targetBassMeasure, splitMml.bassMml);
     }
 
     appendMeasureLog(
@@ -278,6 +637,11 @@ loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
 loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
 loadStoredTarget(BASS_TRACK_STORAGE_KEY, DEFAULT_TRACK, bassTrackEl);
 loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
+syncMeasureGridControls(measureGridConfig);
+renderMeasureGrid();
+
+void loadMeasureGridFromCmrt();
+
 trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));
 measureEl.addEventListener("input", () =>
   saveTarget(MEASURE_STORAGE_KEY, measureEl)
@@ -299,4 +663,13 @@ inputEl.addEventListener("input", () => {
 sendBtn.addEventListener("click", () => {
   debouncedSendMml.cancel();
   void sendMml();
+});
+gridReloadBtn.addEventListener("click", () => {
+  const nextConfig = readMeasureGridConfigFromControls();
+  if (nextConfig === null) {
+    return;
+  }
+
+  applyMeasureGridConfig(nextConfig);
+  void loadMeasureGridFromCmrt();
 });

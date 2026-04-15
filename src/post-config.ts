@@ -20,6 +20,20 @@ export function parsePositiveInteger(value: string): number | null {
   return parsed;
 }
 
+export function parseNonNegativeInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^(0|[1-9]\d*)$/.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isSafeInteger(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
 export interface SanitizedMml {
   mml: string;
   removedTokens: string[];
