@@ -34,6 +34,9 @@ interface MeasureGridExpansionLimits {
   maxMeasureCount: number;
 }
 
+/**
+ * POST送信時と応答受信時の入力状態を比較し、stale な応答かどうかを判定するためのスナップショット。
+ */
 interface MeasureGridPostSyncSnapshot {
   sentValue: string;
   currentValue: string;
@@ -140,6 +143,9 @@ export function expandMeasureGridConfigToInclude(
   return nextConfig;
 }
 
+/**
+ * 入力値が変化した、または edit version が進んだ場合は、送信中により新しい編集が入ったとみなす。
+ */
 export function isStaleMeasureGridPostSync(
   snapshot: MeasureGridPostSyncSnapshot
 ): boolean {
