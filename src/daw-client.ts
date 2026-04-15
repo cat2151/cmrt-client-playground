@@ -78,6 +78,16 @@ function isDawClientError(data: unknown): data is DawClientError {
   }
 }
 
+function isStringArray(data: unknown[]): data is string[] {
+  for (const value of data) {
+    if (typeof value !== "string") {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export class DawClient {
   private readonly baseUrl: string;
 
@@ -132,7 +142,7 @@ export class DawClient {
       return data;
     }
 
-    if (!Array.isArray(data) || !data.every((patch) => typeof patch === "string")) {
+    if (!Array.isArray(data) || !isStringArray(data)) {
       return {
         kind: "invalidResponse",
         message: "expected an array of strings",
