@@ -1,4 +1,8 @@
 import "./style.css";
+import {
+  selectAutoTargetTracks,
+  type AutoTargetCandidate,
+} from "./auto-targets.ts";
 import { splitBassRootMmlByTrack } from "./bass-root-mml.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import { chordToMml } from "./chord-to-mml.ts";
@@ -39,6 +43,9 @@ const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
+const INIT_MEASURE = 0;
+const AUTO_TARGET_TRACK_SCAN_START = 1;
+const AUTO_TARGET_TRACK_SCAN_END = 16;
 const GRID_GET_CONCURRENCY = 8;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
@@ -75,13 +82,15 @@ function loadStoredTarget(
   key: string,
   fallback: number,
   element: HTMLInputElement
-): void {
+): boolean {
   try {
     const storedValue = localStorage.getItem(key);
-    const parsed = storedValue === null ? fallback : parsePositiveInteger(storedValue);
+    const parsed = storedValue === null ? null : parsePositiveInteger(storedValue);
     element.value = String(parsed ?? fallback);
+    return parsed !== null;
   } catch {
     element.value = String(fallback);
+    return false;
   }
 }
 
@@ -471,6 +480,56 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
   appendLog(`grid GET完了: ${okCount}/${totalCells} セル同期`);
 }
 
+async function autoSelectTracksFromCmrt(options: {
+  shouldSelectChordTrack: boolean;
+  shouldSelectBassTrack: boolean;
+}): Promise<void> {
+  if (!options.shouldSelectChordTrack && !options.shouldSelectBassTrack) {
+    return;
+  }
+
+  const candidates: AutoTargetCandidate[] = [];
+  for (
+    let track = AUTO_TARGET_TRACK_SCAN_START;
+    track <= AUTO_TARGET_TRACK_SCAN_END;
+    track += 1
+  ) {
+    const result = await dawClient.getMeasureInfo(track, INIT_MEASURE);
+    if (typeof result === "object" && "kind" in result) {
+      break;
+    }
+
+    candidates.push({ track, filterName: result.filterName });
+  }
+  const selection = selectAutoTargetTracks(candidates);
+
+  if (options.shouldSelectChordTrack && selection.chordTrack !== null) {
+    trackEl.value = String(selection.chordTrack);
+    saveTarget(TRACK_STORAGE_KEY, trackEl);
+  }
+
+  if (options.shouldSelectBassTrack && selection.bassTrack !== null) {
+    bassTrackEl.value = String(selection.bassTrack);
+    saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
+  }
+
+  if (
+    (options.shouldSelectChordTrack && selection.chordTrack !== null) ||
+    (options.shouldSelectBassTrack && selection.bassTrack !== null)
+  ) {
+    const selectedTargets: string[] = [];
+    if (options.shouldSelectChordTrack && selection.chordTrack !== null) {
+      selectedTargets.push(`chord track=${selection.chordTrack}`);
+    }
+    if (options.shouldSelectBassTrack && selection.bassTrack !== null) {
+      selectedTargets.push(`bass track=${selection.bassTrack}`);
+    }
+    appendLog(
+      `起動時に track を自動選択: ${selectedTargets.join(", ")}`
+    );
+  }
+}
+
 async function sendMml(): Promise<void> {
   const input = inputEl.value.trim();
   if (!input) {
@@ -633,13 +692,21 @@ const debouncedSendMml = createDebouncedCallback(() => {
   return sendMml();
 }, AUTO_SEND_DELAY_MS);
 
-loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
+const hasStoredChordTrack = loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
 loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
-loadStoredTarget(BASS_TRACK_STORAGE_KEY, DEFAULT_TRACK, bassTrackEl);
+const hasStoredBassTrack = loadStoredTarget(
+  BASS_TRACK_STORAGE_KEY,
+  DEFAULT_TRACK,
+  bassTrackEl
+);
 loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 syncMeasureGridControls(measureGridConfig);
 renderMeasureGrid();
 
+void autoSelectTracksFromCmrt({
+  shouldSelectChordTrack: !hasStoredChordTrack,
+  shouldSelectBassTrack: !hasStoredBassTrack,
+});
 void loadMeasureGridFromCmrt();
 
 trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));

@@ -93,6 +93,71 @@ describe("DawClient.getMml", () => {
   });
 });
 
+describe("DawClient.getMeasureInfo", () => {
+  it("extracts an optional snake_case filter name from init meas responses", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        track: 2,
+        measure: 0,
+        filter_name: "Warm Pad",
+        mml: "@1 l8cde",
+      }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMeasureInfo(2, 0);
+
+    expect(result).toEqual({
+      mml: "@1 l8cde",
+      filterName: "Warm Pad",
+    });
+  });
+
+  it("extracts an optional nested filter name when present", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        track: 3,
+        measure: 0,
+        filter: { name: "Electric Bass" },
+        mml: "@2 l8efg",
+      }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMeasureInfo(3, 0);
+
+    expect(result).toEqual({
+      mml: "@2 l8efg",
+      filterName: "Electric Bass",
+    });
+  });
+
+  it("extracts an optional camelCase filter name when present", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        track: 5,
+        measure: 0,
+        filterName: "Glass Pad",
+        mml: "@3 l8gab",
+      }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMeasureInfo(5, 0);
+
+    expect(result).toEqual({
+      mml: "@3 l8gab",
+      filterName: "Glass Pad",
+    });
+  });
+});
+
 describe("DawClient.getPatches", () => {
   it("rejects mixed arrays", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
