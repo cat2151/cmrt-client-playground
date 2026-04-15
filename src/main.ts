@@ -41,6 +41,7 @@ const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
+const AUTO_TARGET_TRACK_SCAN_START = 1;
 const AUTO_TARGET_TRACK_SCAN_LIMIT = 16;
 const GRID_GET_CONCURRENCY = 8;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
@@ -476,7 +477,11 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
 
 async function autoSelectTracksFromCmrt(): Promise<void> {
   const candidates = [];
-  for (let track = 1; track <= AUTO_TARGET_TRACK_SCAN_LIMIT; track += 1) {
+  for (
+    let track = AUTO_TARGET_TRACK_SCAN_START;
+    track <= AUTO_TARGET_TRACK_SCAN_LIMIT;
+    track += 1
+  ) {
     const result = await dawClient.getMeasureInfo(track, INIT_MEASURE);
     if (typeof result === "object" && "kind" in result) {
       break;
