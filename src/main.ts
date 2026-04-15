@@ -497,10 +497,13 @@ async function autoSelectTracksFromCmrt(): Promise<void> {
   }
 
   if (selection.chordTrack !== null || selection.bassTrack !== null) {
-    const selectedTargets = [
-      selection.chordTrack === null ? null : `chord track=${selection.chordTrack}`,
-      selection.bassTrack === null ? null : `bass track=${selection.bassTrack}`,
-    ].filter((value) => value !== null);
+    const selectedTargets: string[] = [];
+    if (selection.chordTrack !== null) {
+      selectedTargets.push(`chord track=${selection.chordTrack}`);
+    }
+    if (selection.bassTrack !== null) {
+      selectedTargets.push(`bass track=${selection.bassTrack}`);
+    }
     appendLog(
       `起動時に track を自動選択: ${selectedTargets.join(", ")}`
     );

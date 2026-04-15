@@ -135,6 +135,27 @@ describe("DawClient.getMeasureInfo", () => {
       filterName: "Electric Bass",
     });
   });
+
+  it("extracts an optional camelCase filter name when present", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        track: 5,
+        measure: 0,
+        filterName: "Glass Pad",
+        mml: "@3 l8gab",
+      }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMeasureInfo(5, 0);
+
+    expect(result).toEqual({
+      mml: "@3 l8gab",
+      filterName: "Glass Pad",
+    });
+  });
 });
 
 describe("DawClient.getPatches", () => {
