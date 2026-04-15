@@ -409,6 +409,9 @@ function reflectMeasureGridValue(track: number, measure: number, mml: string): v
 
   if (input.dataset.dirty === "true") {
     input.title = `web側の結果 ${track}:${measure} は、未送信の編集があるため上書きをスキップ`;
+    appendLog(
+      `grid 反映をスキップ: ${track}:${measure} には未送信の編集があるため web側の結果を上書きしません`
+    );
     return;
   }
 
