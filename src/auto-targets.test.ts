@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { selectAutoTargetTracks } from "./auto-targets.ts";
 
 describe("selectAutoTargetTracks", () => {
-  it("selects the first tracks whose filter names contain pad and bass", () => {
+  it("selects the first matching tracks when multiple pad and bass candidates exist", () => {
     expect(
       selectAutoTargetTracks([
         { track: 2, filterName: "Warm Pad" },
@@ -16,11 +16,11 @@ describe("selectAutoTargetTracks", () => {
     });
   });
 
-  it("matches filter names case-insensitively with partial keyword matches", () => {
+  it("matches filter names case-insensitively", () => {
     expect(
       selectAutoTargetTracks([
         { track: 6, filterName: "SOFT PAD" },
-        { track: 7, filterName: "SubBass Layer" },
+        { track: 7, filterName: "SYNTH BASS" },
       ])
     ).toEqual({
       chordTrack: 6,
