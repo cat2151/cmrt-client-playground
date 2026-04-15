@@ -32,6 +32,11 @@ interface GetMmlResponse {
   mml: string;
 }
 
+export interface MeasureInfo {
+  mml: string;
+  filterName: string | null;
+}
+
 interface PostMmlRequest {
   track: number;
   measure: number;
@@ -86,6 +91,29 @@ function isArrayOfStrings(data: readonly unknown[]): data is string[] {
   }
 
   return true;
+}
+
+function extractFilterName(data: Record<string, unknown>): string | null {
+  const filterNameCandidate = data.filter_name;
+  if (typeof filterNameCandidate === "string" && filterNameCandidate.trim() !== "") {
+    return filterNameCandidate;
+  }
+
+  const camelCaseFilterNameCandidate = data.filterName;
+  if (
+    typeof camelCaseFilterNameCandidate === "string" &&
+    camelCaseFilterNameCandidate.trim() !== ""
+  ) {
+    return camelCaseFilterNameCandidate;
+  }
+
+  const filterCandidate = data.filter;
+  if (typeof filterCandidate !== "object" || filterCandidate === null) {
+    return null;
+  }
+
+  const filterName = (filterCandidate as Record<string, unknown>).name;
+  return typeof filterName === "string" && filterName.trim() !== "" ? filterName : null;
 }
 
 export class DawClient {
@@ -152,7 +180,10 @@ export class DawClient {
     return data;
   }
 
-  async getMml(track: number, measure: number): Promise<string | DawClientError> {
+  async getMeasureInfo(
+    track: number,
+    measure: number
+  ): Promise<MeasureInfo | DawClientError> {
     const data = await this.getJson(`/mml?track=${track}&measure=${measure}`);
     if (isDawClientError(data)) {
       return data;
@@ -170,7 +201,19 @@ export class DawClient {
       };
     }
 
-    return (data as GetMmlResponse).mml;
+    return {
+      mml: (data as GetMmlResponse).mml,
+      filterName: extractFilterName(data as Record<string, unknown>),
+    };
+  }
+
+  async getMml(track: number, measure: number): Promise<string | DawClientError> {
+    const result = await this.getMeasureInfo(track, measure);
+    if (typeof result === "object" && "kind" in result) {
+      return result;
+    }
+
+    return result.mml;
   }
 
   private async getJson(path: string): Promise<unknown | DawClientError> {

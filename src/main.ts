@@ -1,4 +1,5 @@
 import "./style.css";
+import { selectAutoTargetTracks } from "./auto-targets.ts";
 import { splitBassRootMmlByTrack } from "./bass-root-mml.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import { chordToMml } from "./chord-to-mml.ts";
@@ -39,6 +40,8 @@ const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
+const INIT_MEASURE = 0;
+const AUTO_TARGET_TRACK_SCAN_LIMIT = 16;
 const GRID_GET_CONCURRENCY = 8;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
@@ -471,6 +474,36 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
   appendLog(`grid GET完了: ${okCount}/${totalCells} セル同期`);
 }
 
+async function autoSelectTracksFromCmrt(): Promise<void> {
+  const scanResults = await Promise.all(
+    Array.from({ length: AUTO_TARGET_TRACK_SCAN_LIMIT }, (_, index) =>
+      dawClient.getMeasureInfo(index + 1, INIT_MEASURE)
+    )
+  );
+  const candidates = scanResults.flatMap((result, index) =>
+    typeof result === "object" && "kind" in result
+      ? []
+      : [{ track: index + 1, filterName: result.filterName }]
+  );
+  const selection = selectAutoTargetTracks(candidates);
+
+  if (selection.chordTrack !== null) {
+    trackEl.value = String(selection.chordTrack);
+    saveTarget(TRACK_STORAGE_KEY, trackEl);
+  }
+
+  if (selection.bassTrack !== null) {
+    bassTrackEl.value = String(selection.bassTrack);
+    saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
+  }
+
+  if (selection.chordTrack !== null || selection.bassTrack !== null) {
+    appendLog(
+      `起動時に track を自動選択: chord track=${trackEl.value}, bass track=${bassTrackEl.value}`
+    );
+  }
+}
+
 async function sendMml(): Promise<void> {
   const input = inputEl.value.trim();
   if (!input) {
@@ -640,6 +673,7 @@ loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 syncMeasureGridControls(measureGridConfig);
 renderMeasureGrid();
 
+void autoSelectTracksFromCmrt();
 void loadMeasureGridFromCmrt();
 
 trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));
