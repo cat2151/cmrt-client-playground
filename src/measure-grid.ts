@@ -34,6 +34,13 @@ interface MeasureGridExpansionLimits {
   maxMeasureCount: number;
 }
 
+interface MeasureGridPostSyncSnapshot {
+  sentValue: string;
+  currentValue: string;
+  sentEditVersion: number;
+  currentEditVersion: number;
+}
+
 function getMeasureGridCellKey(track: number, measure: number): string {
   return `${track}:${measure}`;
 }
@@ -131,6 +138,15 @@ export function expandMeasureGridConfigToInclude(
   }
 
   return nextConfig;
+}
+
+export function isStaleMeasureGridPostSync(
+  snapshot: MeasureGridPostSyncSnapshot
+): boolean {
+  return (
+    snapshot.currentValue !== snapshot.sentValue ||
+    snapshot.currentEditVersion !== snapshot.sentEditVersion
+  );
 }
 
 export function createMeasureGridController(
@@ -235,14 +251,27 @@ export function createMeasureGridController(
         const cell = document.createElement("td");
         const input = document.createElement("input");
         const key = getMeasureGridCellKey(track, measure);
+        let editVersion = 0;
         const syncer = createDebouncedCallback(async () => {
+          const sentValue = input.value;
+          const sentEditVersion = editVersion;
           setMeasureGridCellStatus(
             input,
             "syncing",
             `POST ${track}:${measure} を cmrt と同期中`
           );
 
-          const result = await dawClient.postMml(track, measure, input.value);
+          const result = await dawClient.postMml(track, measure, sentValue);
+          const isStaleResponse = isStaleMeasureGridPostSync({
+            sentValue,
+            currentValue: input.value,
+            sentEditVersion,
+            currentEditVersion: editVersion,
+          });
+          if (isStaleResponse) {
+            return;
+          }
+
           if (result !== undefined) {
             const errorMessage = dawClientErrorMessage(result);
             setMeasureGridCellStatus(input, "error", errorMessage);
@@ -250,10 +279,10 @@ export function createMeasureGridController(
             return;
           }
 
-          measureGridValues.set(key, input.value);
+          measureGridValues.set(key, sentValue);
           input.dataset.dirty = "false";
           setMeasureGridCellStatus(input, "idle", `POST ${track}:${measure} OK`);
-          appendLog(`grid POST ${track}:${measure} OK: "${input.value}"`);
+          appendLog(`grid POST ${track}:${measure} OK: "${sentValue}"`);
         }, autoSendDelayMs);
 
         input.className = "measure-grid-cell";
@@ -262,6 +291,7 @@ export function createMeasureGridController(
         input.dataset.dirty = "false";
         input.setAttribute("aria-label", `track ${track} measure ${measure}`);
         input.addEventListener("input", () => {
+          editVersion += 1;
           measureGridValues.set(key, input.value);
           input.dataset.dirty = "true";
           setMeasureGridCellStatus(

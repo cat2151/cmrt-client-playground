@@ -3,6 +3,7 @@ import {
   expandMeasureGridConfigToInclude,
   getVisibleMeasures,
   getVisibleTracks,
+  isStaleMeasureGridPostSync,
   type MeasureGridConfig,
 } from "./measure-grid.ts";
 
@@ -89,5 +90,40 @@ describe("expandMeasureGridConfigToInclude", () => {
         maxMeasureCount: 32,
       })
     ).toBeNull();
+  });
+});
+
+describe("isStaleMeasureGridPostSync", () => {
+  it("returns false when the input state still matches the sent snapshot", () => {
+    expect(
+      isStaleMeasureGridPostSync({
+        sentValue: "cdef",
+        currentValue: "cdef",
+        sentEditVersion: 2,
+        currentEditVersion: 2,
+      })
+    ).toBe(false);
+  });
+
+  it("returns true when the input value changed while the POST was in-flight", () => {
+    expect(
+      isStaleMeasureGridPostSync({
+        sentValue: "cdef",
+        currentValue: "gabc",
+        sentEditVersion: 2,
+        currentEditVersion: 3,
+      })
+    ).toBe(true);
+  });
+
+  it("returns true when edit history changed even if the value returned to the same text", () => {
+    expect(
+      isStaleMeasureGridPostSync({
+        sentValue: "cdef",
+        currentValue: "cdef",
+        sentEditVersion: 2,
+        currentEditVersion: 3,
+      })
+    ).toBe(true);
   });
 });
