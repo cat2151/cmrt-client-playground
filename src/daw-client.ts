@@ -56,12 +56,12 @@ function normalizeBaseUrl(baseUrl: string): string | DawClientError {
   return trimmed;
 }
 
-function isDawClientError(value: unknown): value is DawClientError {
-  if (typeof value !== "object" || value === null || !("kind" in value)) {
+function isDawClientError(data: unknown): data is DawClientError {
+  if (typeof data !== "object" || data === null || !("kind" in data)) {
     return false;
   }
 
-  return typeof value.kind === "string";
+  return typeof data.kind === "string";
 }
 
 export class DawClient {

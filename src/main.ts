@@ -39,10 +39,7 @@ const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
-const DEFAULT_GRID_TRACK_START = 1;
-const DEFAULT_GRID_TRACK_COUNT = 4;
-const DEFAULT_GRID_MEASURE_START = 0;
-const DEFAULT_GRID_MEASURE_COUNT = 8;
+const GRID_GET_CONCURRENCY = 8;
 
 interface MeasureGridConfig {
   trackStart: number;
@@ -57,12 +54,14 @@ const measureGridSyncers = new Map<
   string,
   ReturnType<typeof createDebouncedCallback>
 >();
-let measureGridConfig: MeasureGridConfig = {
-  trackStart: DEFAULT_GRID_TRACK_START,
-  trackCount: DEFAULT_GRID_TRACK_COUNT,
-  measureStart: DEFAULT_GRID_MEASURE_START,
-  measureCount: DEFAULT_GRID_MEASURE_COUNT,
+const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
+  trackStart: 1,
+  trackCount: 4,
+  measureStart: 0,
+  measureCount: 8,
 };
+const dawClient = DawClient.localDefault();
+let measureGridConfig: MeasureGridConfig = { ...DEFAULT_MEASURE_GRID_CONFIG };
 
 function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
@@ -255,7 +254,7 @@ function renderMeasureGrid(): void {
           `POST ${track}:${measure} を cmrt と同期中`
         );
 
-        const result = await DawClient.localDefault().postMml(track, measure, input.value);
+        const result = await dawClient.postMml(track, measure, input.value);
         if (result !== undefined) {
           const errorMessage = dawClientErrorMessage(result);
           setMeasureGridCellStatus(input, "error", errorMessage);
@@ -358,7 +357,6 @@ function reflectMeasureGridValue(track: number, measure: number, mml: string): v
 }
 
 async function loadMeasureGridFromCmrt(): Promise<void> {
-  const client = DawClient.localDefault();
   const visibleTracks = getVisibleTracks(measureGridConfig);
   const visibleMeasures = getVisibleMeasures(measureGridConfig);
   const totalCells = visibleTracks.length * visibleMeasures.length;
@@ -370,9 +368,14 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
   );
 
   let okCount = 0;
-  await Promise.all(
-    visibleTracks.flatMap((track) =>
-      visibleMeasures.map(async (measure) => {
+  const cellTargets = visibleTracks.flatMap((track) =>
+    visibleMeasures.map((measure) => ({ track, measure }))
+  );
+
+  for (let index = 0; index < cellTargets.length; index += GRID_GET_CONCURRENCY) {
+    const chunk = cellTargets.slice(index, index + GRID_GET_CONCURRENCY);
+    await Promise.all(
+      chunk.map(async ({ track, measure }) => {
         const key = getMeasureGridCellKey(track, measure);
         const input = measureGridInputs.get(key);
         if (input === undefined) {
@@ -380,30 +383,25 @@ async function loadMeasureGridFromCmrt(): Promise<void> {
         }
 
         setMeasureGridCellStatus(input, "loading", `GET ${track}:${measure} を読み込み中`);
-        const result = await client.getMml(track, measure);
-        const latestInput = measureGridInputs.get(key);
-        if (latestInput === undefined) {
+        const result = await dawClient.getMml(track, measure);
+        if (measureGridInputs.get(key) !== input) {
           return;
         }
 
         if (typeof result !== "string") {
-          setMeasureGridCellStatus(
-            latestInput,
-            "error",
-            dawClientErrorMessage(result)
-          );
+          setMeasureGridCellStatus(input, "error", dawClientErrorMessage(result));
           return;
         }
 
         measureGridValues.set(key, result);
-        if (latestInput.dataset.dirty !== "true") {
-          latestInput.value = result;
+        if (input.dataset.dirty !== "true") {
+          input.value = result;
         }
-        setMeasureGridCellStatus(latestInput, "idle", `GET ${track}:${measure} OK`);
+        setMeasureGridCellStatus(input, "idle", `GET ${track}:${measure} OK`);
         okCount += 1;
       })
-    )
-  );
+    );
+  }
 
   appendLog(`grid GET完了: ${okCount}/${totalCells} セル同期`);
 }
@@ -415,7 +413,7 @@ async function sendMml(): Promise<void> {
     return;
   }
 
-  const client = DawClient.localDefault();
+  const client = dawClient;
   const chordTrack = getTargetValue(trackEl, "chord track");
   const chordMeasure = getTargetValue(measureEl, "chord meas");
   if (chordTrack === null || chordMeasure === null) {
