@@ -75,9 +75,9 @@ export function getMeasureGridCellHighlight(
   targets: MeasureGridHighlightTargets
 ): "none" | "chord" | "bass" | "both" {
   const isChordTarget =
-    targets.chordTarget?.track === track && targets.chordTarget.measure === measure;
+    targets.chordTarget?.track === track && targets.chordTarget?.measure === measure;
   const isBassTarget =
-    targets.bassTarget?.track === track && targets.bassTarget.measure === measure;
+    targets.bassTarget?.track === track && targets.bassTarget?.measure === measure;
 
   if (isChordTarget && isBassTarget) {
     return "both";

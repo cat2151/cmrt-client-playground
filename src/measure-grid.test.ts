@@ -165,4 +165,13 @@ describe("getMeasureGridCellHighlight", () => {
       })
     ).toBe("none");
   });
+
+  it("returns none when nullable targets are missing", () => {
+    expect(
+      getMeasureGridCellHighlight(2, 3, {
+        chordTarget: null,
+        bassTarget: null,
+      })
+    ).toBe("none");
+  });
 });

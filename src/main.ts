@@ -168,18 +168,18 @@ const measureGridController = createMeasureGridController({
 function syncMeasureGridHighlightTargets(): void {
   const chordTrack = parsePositiveInteger(trackEl.value);
   const chordMeasure = parsePositiveInteger(measureEl.value);
-  const bassTrack = parsePositiveInteger(bassTrackEl.value);
-  const bassMeasure = parsePositiveInteger(bassMeasureEl.value);
+  const chordTarget =
+    chordTrack === null || chordMeasure === null
+      ? null
+      : { track: chordTrack, measure: chordMeasure };
+  const bassTarget =
+    chordTarget === null
+      ? null
+      : resolveBassTargets(bassTrackEl.value, bassMeasureEl.value, chordTarget);
 
   measureGridController.setHighlightTargets({
-    chordTarget:
-      chordTrack === null || chordMeasure === null
-        ? null
-        : { track: chordTrack, measure: chordMeasure },
-    bassTarget:
-      bassTrack === null || bassMeasure === null
-        ? null
-        : { track: bassTrack, measure: bassMeasure },
+    chordTarget,
+    bassTarget,
   });
 }
 
