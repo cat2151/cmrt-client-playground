@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   expandMeasureGridConfigToInclude,
+  getMeasureGridCellHighlight,
   getVisibleMeasures,
   getVisibleTracks,
   isStaleMeasureGridPostSync,
@@ -125,5 +126,43 @@ describe("isStaleMeasureGridPostSync", () => {
         currentEditVersion: 3,
       })
     ).toBe(true);
+  });
+});
+
+describe("getMeasureGridCellHighlight", () => {
+  it("returns chord when the cell matches only the chord target", () => {
+    expect(
+      getMeasureGridCellHighlight(2, 3, {
+        chordTarget: { track: 2, measure: 3 },
+        bassTarget: { track: 5, measure: 7 },
+      })
+    ).toBe("chord");
+  });
+
+  it("returns bass when the cell matches only the bass target", () => {
+    expect(
+      getMeasureGridCellHighlight(5, 7, {
+        chordTarget: { track: 2, measure: 3 },
+        bassTarget: { track: 5, measure: 7 },
+      })
+    ).toBe("bass");
+  });
+
+  it("returns both when chord and bass target the same cell", () => {
+    expect(
+      getMeasureGridCellHighlight(4, 6, {
+        chordTarget: { track: 4, measure: 6 },
+        bassTarget: { track: 4, measure: 6 },
+      })
+    ).toBe("both");
+  });
+
+  it("returns none when the cell is not targeted", () => {
+    expect(
+      getMeasureGridCellHighlight(1, 1, {
+        chordTarget: { track: 2, measure: 3 },
+        bassTarget: { track: 5, measure: 7 },
+      })
+    ).toBe("none");
   });
 });

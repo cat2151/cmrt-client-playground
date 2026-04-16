@@ -9,6 +9,16 @@ export interface MeasureGridConfig {
   measureCount: number;
 }
 
+export interface MeasureGridTarget {
+  track: number;
+  measure: number;
+}
+
+export interface MeasureGridHighlightTargets {
+  chordTarget: MeasureGridTarget | null;
+  bassTarget: MeasureGridTarget | null;
+}
+
 interface MeasureGridElements {
   trackStartEl: HTMLInputElement;
   trackCountEl: HTMLInputElement;
@@ -57,6 +67,43 @@ export function getVisibleMeasures(config: MeasureGridConfig): number[] {
     { length: config.measureCount },
     (_, index) => config.measureStart + index
   );
+}
+
+export function getMeasureGridCellHighlight(
+  track: number,
+  measure: number,
+  targets: MeasureGridHighlightTargets
+): "none" | "chord" | "bass" | "both" {
+  const isChordTarget =
+    targets.chordTarget?.track === track && targets.chordTarget.measure === measure;
+  const isBassTarget =
+    targets.bassTarget?.track === track && targets.bassTarget.measure === measure;
+
+  if (isChordTarget && isBassTarget) {
+    return "both";
+  }
+  if (isChordTarget) {
+    return "chord";
+  }
+  if (isBassTarget) {
+    return "bass";
+  }
+  return "none";
+}
+
+function setMeasureGridCellHighlight(
+  input: HTMLInputElement,
+  highlight: "none" | "chord" | "bass" | "both"
+): void {
+  input.classList.toggle(
+    "measure-grid-cell--target-chord",
+    highlight === "chord" || highlight === "both"
+  );
+  input.classList.toggle(
+    "measure-grid-cell--target-bass",
+    highlight === "bass" || highlight === "both"
+  );
+  input.classList.toggle("measure-grid-cell--target-both", highlight === "both");
 }
 
 function setMeasureGridCellStatus(
@@ -162,6 +209,7 @@ export function createMeasureGridController(
   readConfigFromControls(): MeasureGridConfig | null;
   render(): void;
   applyConfig(config: MeasureGridConfig): void;
+  setHighlightTargets(targets: MeasureGridHighlightTargets): void;
   reflectValue(track: number, measure: number, mml: string): void;
   loadFromCmrt(): Promise<void>;
 } {
@@ -182,6 +230,10 @@ export function createMeasureGridController(
     ReturnType<typeof createDebouncedCallback>
   >();
   let measureGridConfig = { ...initialConfig };
+  let measureGridHighlightTargets: MeasureGridHighlightTargets = {
+    chordTarget: null,
+    bassTarget: null,
+  };
 
   function cancelMeasureGridSyncers(): void {
     for (const syncer of measureGridSyncers.values()) {
@@ -223,6 +275,18 @@ export function createMeasureGridController(
     }
 
     return { trackStart, trackCount, measureStart, measureCount };
+  }
+
+  function updateMeasureGridHighlights(): void {
+    for (const [key, input] of measureGridInputs.entries()) {
+      const [trackText, measureText] = key.split(":");
+      const track = Number(trackText);
+      const measure = Number(measureText);
+      setMeasureGridCellHighlight(
+        input,
+        getMeasureGridCellHighlight(track, measure, measureGridHighlightTargets)
+      );
+    }
   }
 
   function render(): void {
@@ -296,6 +360,10 @@ export function createMeasureGridController(
         input.value = measureGridValues.get(key) ?? "";
         input.dataset.dirty = "false";
         input.setAttribute("aria-label", `track ${track} measure ${measure}`);
+        setMeasureGridCellHighlight(
+          input,
+          getMeasureGridCellHighlight(track, measure, measureGridHighlightTargets)
+        );
         input.addEventListener("input", () => {
           editVersion += 1;
           measureGridValues.set(key, input.value);
@@ -322,6 +390,11 @@ export function createMeasureGridController(
     measureGridConfig = config;
     syncControls();
     render();
+  }
+
+  function setHighlightTargets(targets: MeasureGridHighlightTargets): void {
+    measureGridHighlightTargets = targets;
+    updateMeasureGridHighlights();
   }
 
   function ensureIncludes(track: number, measure: number): boolean {
@@ -452,6 +525,7 @@ export function createMeasureGridController(
     readConfigFromControls,
     render,
     applyConfig,
+    setHighlightTargets,
     reflectValue,
     loadFromCmrt,
   };

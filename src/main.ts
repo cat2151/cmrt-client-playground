@@ -165,6 +165,24 @@ const measureGridController = createMeasureGridController({
   initialConfig: DEFAULT_MEASURE_GRID_CONFIG,
 });
 
+function syncMeasureGridHighlightTargets(): void {
+  const chordTrack = parsePositiveInteger(trackEl.value);
+  const chordMeasure = parsePositiveInteger(measureEl.value);
+  const bassTrack = parsePositiveInteger(bassTrackEl.value);
+  const bassMeasure = parsePositiveInteger(bassMeasureEl.value);
+
+  measureGridController.setHighlightTargets({
+    chordTarget:
+      chordTrack === null || chordMeasure === null
+        ? null
+        : { track: chordTrack, measure: chordMeasure },
+    bassTarget:
+      bassTrack === null || bassMeasure === null
+        ? null
+        : { track: bassTrack, measure: bassMeasure },
+  });
+}
+
 async function autoSelectTracksFromCmrt(options: {
   shouldSelectChordTrack: boolean;
   shouldSelectBassTrack: boolean;
@@ -212,6 +230,7 @@ async function autoSelectTracksFromCmrt(options: {
     appendLog(
       `起動時に track を自動選択: ${selectedTargets.join(", ")}`
     );
+    syncMeasureGridHighlightTargets();
   }
 }
 
@@ -395,6 +414,7 @@ const hasStoredBassTrack = loadStoredTarget(
 loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 measureGridController.syncControls();
 measureGridController.render();
+syncMeasureGridHighlightTargets();
 
 void autoSelectTracksFromCmrt({
   shouldSelectChordTrack: !hasStoredChordTrack,
@@ -402,16 +422,22 @@ void autoSelectTracksFromCmrt({
 });
 void measureGridController.loadFromCmrt();
 
-trackEl.addEventListener("input", () => saveTarget(TRACK_STORAGE_KEY, trackEl));
-measureEl.addEventListener("input", () =>
-  saveTarget(MEASURE_STORAGE_KEY, measureEl)
-);
-bassTrackEl.addEventListener("input", () =>
-  saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl)
-);
-bassMeasureEl.addEventListener("input", () =>
-  saveTarget(BASS_MEASURE_STORAGE_KEY, bassMeasureEl)
-);
+trackEl.addEventListener("input", () => {
+  saveTarget(TRACK_STORAGE_KEY, trackEl);
+  syncMeasureGridHighlightTargets();
+});
+measureEl.addEventListener("input", () => {
+  saveTarget(MEASURE_STORAGE_KEY, measureEl);
+  syncMeasureGridHighlightTargets();
+});
+bassTrackEl.addEventListener("input", () => {
+  saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
+  syncMeasureGridHighlightTargets();
+});
+bassMeasureEl.addEventListener("input", () => {
+  saveTarget(BASS_MEASURE_STORAGE_KEY, bassMeasureEl);
+  syncMeasureGridHighlightTargets();
+});
 inputEl.addEventListener("input", () => {
   if (!inputEl.value.trim()) {
     debouncedSendMml.cancel();
