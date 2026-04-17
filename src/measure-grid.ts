@@ -1,13 +1,19 @@
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import { createDebouncedCallback } from "./debounce.ts";
+import {
+  expandMeasureGridConfigToInclude,
+  getVisibleMeasures,
+  getVisibleTracks,
+  type MeasureGridConfig,
+} from "./measure-grid-config.ts";
 import { parseNonNegativeInteger, parsePositiveInteger } from "./post-config.ts";
 
-export interface MeasureGridConfig {
-  trackStart: number;
-  trackCount: number;
-  measureStart: number;
-  measureCount: number;
-}
+export {
+  expandMeasureGridConfigToInclude,
+  getVisibleMeasures,
+  getVisibleTracks,
+} from "./measure-grid-config.ts";
+export type { MeasureGridConfig } from "./measure-grid-config.ts";
 
 export interface MeasureGridTarget {
   track: number;
@@ -39,11 +45,6 @@ interface CreateMeasureGridControllerOptions {
   initialConfig: MeasureGridConfig;
 }
 
-interface MeasureGridExpansionLimits {
-  maxTrackCount: number;
-  maxMeasureCount: number;
-}
-
 /**
  * POST送信時と応答受信時の入力状態を比較し、stale な応答かどうかを判定するためのスナップショット。
  */
@@ -56,17 +57,6 @@ interface MeasureGridPostSyncSnapshot {
 
 function getMeasureGridCellKey(track: number, measure: number): string {
   return `${track}:${measure}`;
-}
-
-export function getVisibleTracks(config: MeasureGridConfig): number[] {
-  return Array.from({ length: config.trackCount }, (_, index) => config.trackStart + index);
-}
-
-export function getVisibleMeasures(config: MeasureGridConfig): number[] {
-  return Array.from(
-    { length: config.measureCount },
-    (_, index) => config.measureStart + index
-  );
 }
 
 export function getMeasureGridCellHighlight(
@@ -130,64 +120,6 @@ function setMeasureGridCellStatus(
   } else {
     input.removeAttribute("aria-invalid");
   }
-}
-
-export function expandMeasureGridConfigToInclude(
-  config: MeasureGridConfig,
-  track: number,
-  measure: number,
-  limits: MeasureGridExpansionLimits
-): MeasureGridConfig | null {
-  let nextConfig = config;
-
-  if (track < nextConfig.trackStart) {
-    const expandedTrackCount = nextConfig.trackCount + (nextConfig.trackStart - track);
-    if (expandedTrackCount > limits.maxTrackCount) {
-      return null;
-    }
-
-    nextConfig = {
-      ...nextConfig,
-      trackCount: expandedTrackCount,
-      trackStart: track,
-    };
-  } else if (track >= nextConfig.trackStart + nextConfig.trackCount) {
-    const expandedTrackCount = track - nextConfig.trackStart + 1;
-    if (expandedTrackCount > limits.maxTrackCount) {
-      return null;
-    }
-
-    nextConfig = {
-      ...nextConfig,
-      trackCount: expandedTrackCount,
-    };
-  }
-
-  if (measure < nextConfig.measureStart) {
-    const expandedMeasureCount =
-      nextConfig.measureCount + (nextConfig.measureStart - measure);
-    if (expandedMeasureCount > limits.maxMeasureCount) {
-      return null;
-    }
-
-    nextConfig = {
-      ...nextConfig,
-      measureCount: expandedMeasureCount,
-      measureStart: measure,
-    };
-  } else if (measure >= nextConfig.measureStart + nextConfig.measureCount) {
-    const expandedMeasureCount = measure - nextConfig.measureStart + 1;
-    if (expandedMeasureCount > limits.maxMeasureCount) {
-      return null;
-    }
-
-    nextConfig = {
-      ...nextConfig,
-      measureCount: expandedMeasureCount,
-    };
-  }
-
-  return nextConfig;
 }
 
 /**
