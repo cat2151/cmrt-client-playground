@@ -3,9 +3,7 @@ import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
 } from "./auto-targets.ts";
-import { splitBassRootMmlByTrack } from "./bass-root-mml.ts";
-import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
-import { chordToMml } from "./chord-to-mml.ts";
+import { DawClient } from "./daw-client.ts";
 import {
   createMeasureGridController,
   type MeasureGridConfig,
@@ -13,19 +11,11 @@ import {
 import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
-  formatPostErrorMessage,
   parsePositiveInteger,
   resolveBassTargets,
-  sanitizeMmlForPost,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
-import {
-  assignMeasuresToChunks,
-  parseChordSegments,
-  splitChordSegmentsByMeasure,
-  splitSanitizedMmlIntoChordSegments,
-  type PreparedMeasureInput,
-} from "./measure-input.ts";
+import { sendMml } from "./send-mml.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
@@ -105,45 +95,6 @@ function getTargetValue(
     return null;
   }
   return parsed;
-}
-
-function appendMeasureLog(
-  isMultipleMeasures: boolean,
-  index: number,
-  totalMeasures: number,
-  message: string
-): void {
-  if (isMultipleMeasures) {
-    appendLog(`meas分割 ${index + 1}/${totalMeasures}: ${message}`);
-    return;
-  }
-
-  appendLog(message);
-}
-
-function appendPostErrorLog(
-  isMultipleMeasures: boolean,
-  index: number,
-  totalMeasures: number,
-  role: "chord" | "bass",
-  measure: number,
-  errorMessage: string
-): void {
-  appendLog(
-    formatPostErrorMessage(
-      isMultipleMeasures,
-      index,
-      totalMeasures,
-      role,
-      measure,
-      errorMessage
-    )
-  );
-}
-
-function formatQuarterNotes(durationInQuarterNotes: number): string {
-  const rounded = Number(durationInQuarterNotes.toFixed(3));
-  return Number.isInteger(rounded) ? `${rounded}` : rounded.toString();
 }
 
 const measureGridController = createMeasureGridController({
@@ -286,166 +237,23 @@ async function autoSelectTracksFromCmrt(options: {
   }
 }
 
-async function sendMml(): Promise<void> {
-  const input = inputEl.value.trim();
-  if (!input) {
-    appendLog("ERROR: 入力が空です");
-    return;
-  }
-
-  const client = dawClient;
+async function sendCurrentMml(): Promise<void> {
   const chordTrack = getTargetValue(trackEl, "chord track");
   const chordMeasure = getTargetValue(measureEl, "chord meas");
   if (chordTrack === null || chordMeasure === null) {
     return;
   }
-  const bassTargets = resolveBassTargets(bassTrackEl.value, bassMeasureEl.value, {
-    track: chordTrack,
-    measure: chordMeasure,
+  await sendMml({
+    input: inputEl.value,
+    chordTrack,
+    chordMeasure,
+    bassTrackValue: bassTrackEl.value,
+    bassMeasureValue: bassMeasureEl.value,
+    client: dawClient,
+    appendLog,
+    reflectValue: (track, measure, mml) =>
+      measureGridController.reflectValue(track, measure, mml),
   });
-
-  const mml = chordToMml(input);
-  if (mml === null) {
-    appendLog(`ERROR: コードを認識できませんでした: "${input}"`);
-    return;
-  }
-
-  appendLog(`コード進行 → MML: ${mml}`);
-
-  const { mml: sanitizedMml, removedTokens } = sanitizeMmlForPost(mml);
-  if (removedTokens.length > 0) {
-    appendLog(`POST前にMMLから削除: ${removedTokens.join(", ")} → ${sanitizedMml}`);
-  }
-  appendLog(`meas分割対象MML: ${sanitizedMml}`);
-
-  const chordSegments = splitSanitizedMmlIntoChordSegments(sanitizedMml);
-  if (sanitizedMml !== "" && chordSegments.length === 0) {
-    appendLog(
-      `ERROR: meas分割対象のMMLを chord配列 に分解できませんでした: ${sanitizedMml}`
-    );
-    return;
-  }
-
-  appendLog(`meas分割開始: chord配列 ${chordSegments.length} 要素を解析します`);
-  for (const [index, chordSegment] of chordSegments.entries()) {
-    appendLog(`chord配列 ${index + 1}/${chordSegments.length}: ${chordSegment}`);
-  }
-
-  const parsedChordSegments = parseChordSegments(chordSegments);
-  if (parsedChordSegments === null) {
-    appendLog("ERROR: chord配列の音長を解析できませんでした");
-    return;
-  }
-
-  for (const [index, chordSegment] of parsedChordSegments.entries()) {
-    appendLog(
-      `chord配列 ${index + 1}/${parsedChordSegments.length}: ${chordSegment.mml} の音長は四分音符換算で ${formatQuarterNotes(chordSegment.durationInQuarterNotes)} 拍`
-    );
-  }
-
-  const measureChunks = splitChordSegmentsByMeasure(parsedChordSegments);
-  if (measureChunks === null) {
-    appendLog("ERROR: chord配列を 1meas ごとに分割できませんでした");
-    return;
-  }
-
-  const preparedMeasures: PreparedMeasureInput[] = assignMeasuresToChunks(
-    measureChunks,
-    chordMeasure
-  );
-  const isMultipleMeasures = preparedMeasures.length > 1;
-
-  for (const [index, preparedMeasure] of preparedMeasures.entries()) {
-    const splitMml = splitBassRootMmlByTrack(preparedMeasure.mml);
-
-    appendMeasureLog(
-      isMultipleMeasures,
-      index,
-      preparedMeasures.length,
-      `${splitMml.chordMml} (合計 四分音符換算で ${formatQuarterNotes(preparedMeasure.durationInQuarterNotes)} 拍) を chord meas ${preparedMeasure.measure} に割り当て`
-    );
-    appendMeasureLog(
-      isMultipleMeasures,
-      index,
-      preparedMeasures.length,
-      `POST ${client.getBaseUrl()}/mml  { track: ${chordTrack}, measure: ${preparedMeasure.measure}, mml: "${splitMml.chordMml}" }`
-    );
-
-    const chordResult = await client.postMml(
-      chordTrack,
-      preparedMeasure.measure,
-      splitMml.chordMml
-    );
-    if (chordResult !== undefined) {
-      appendPostErrorLog(
-        isMultipleMeasures,
-        index,
-        preparedMeasures.length,
-        "chord",
-        preparedMeasure.measure,
-        dawClientErrorMessage(chordResult)
-      );
-      return;
-    }
-
-    measureGridController.reflectValue(
-      chordTrack,
-      preparedMeasure.measure,
-      splitMml.chordMml
-    );
-
-    if (splitMml.bassMml !== "") {
-      // 複数小節分割時は、chord meas と bass meas を同じ index だけ進めて同期させる。
-      const targetBassMeasure = bassTargets.measure + index;
-
-      appendMeasureLog(
-        isMultipleMeasures,
-        index,
-        preparedMeasures.length,
-        `${splitMml.bassMml} を bass meas ${targetBassMeasure} に割り当て`
-      );
-      appendMeasureLog(
-        isMultipleMeasures,
-        index,
-        preparedMeasures.length,
-        `POST ${client.getBaseUrl()}/mml  { track: ${bassTargets.track}, measure: ${targetBassMeasure}, mml: "${splitMml.bassMml}" }`
-      );
-
-      const bassResult = await client.postMml(
-        bassTargets.track,
-        targetBassMeasure,
-        splitMml.bassMml
-      );
-      if (bassResult !== undefined) {
-        appendPostErrorLog(
-          isMultipleMeasures,
-          index,
-          preparedMeasures.length,
-          "bass",
-          targetBassMeasure,
-          dawClientErrorMessage(bassResult)
-        );
-        return;
-      }
-
-      measureGridController.reflectValue(
-        bassTargets.track,
-        targetBassMeasure,
-        splitMml.bassMml
-      );
-    }
-
-    appendMeasureLog(
-      isMultipleMeasures,
-      index,
-      preparedMeasures.length,
-      isMultipleMeasures ? "OK" : "OK: POSTリクエスト成功"
-    );
-  }
-
-  if (isMultipleMeasures) {
-    appendLog(`meas分割完了: ${preparedMeasures.length} meas の送信に成功しました`);
-  }
 }
 
 const debouncedSendMml = createDebouncedCallback(() => {
@@ -453,7 +261,7 @@ const debouncedSendMml = createDebouncedCallback(() => {
     return;
   }
 
-  return sendMml();
+  return sendCurrentMml();
 }, AUTO_SEND_DELAY_MS);
 
 const hasStoredChordTrack = loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
@@ -507,7 +315,7 @@ inputEl.addEventListener("input", () => {
 });
 sendBtn.addEventListener("click", () => {
   debouncedSendMml.cancel();
-  void sendMml();
+  void sendCurrentMml();
 });
 for (const element of [
   gridTrackStartEl,
