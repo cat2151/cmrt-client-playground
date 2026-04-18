@@ -58,6 +58,10 @@ interface PostPatchRequest {
   patch: string;
 }
 
+interface PostRandomPatchRequest {
+  track: number;
+}
+
 interface PostAbRepeatRequest {
   measA: number;
   measB: number;
@@ -182,6 +186,11 @@ export class DawClient {
   ): Promise<void | DawClientError> {
     const body: PostPatchRequest = { track, patch };
     return this.postStatus("/patch", body);
+  }
+
+  async postRandomPatch(track: number): Promise<void | DawClientError> {
+    const body: PostRandomPatchRequest = { track };
+    return this.postStatus("/patch/random", body);
   }
 
   async postAbRepeat(

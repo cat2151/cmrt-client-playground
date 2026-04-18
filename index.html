@@ -12,7 +12,12 @@
     <div class="target-grid">
       <div>
         <label for="track">chord track</label>
-        <input id="track" type="number" min="1" step="1" value="1" />
+        <div class="target-input-row">
+          <input id="track" type="number" min="1" step="1" value="1" />
+          <button id="track-random-patch" type="button" aria-label="chord ランダム音色">
+            r
+          </button>
+        </div>
       </div>
       <div>
         <label for="measure">chord meas</label>
@@ -20,7 +25,16 @@
       </div>
       <div>
         <label for="bass-track">bass track</label>
-        <input id="bass-track" type="number" min="1" step="1" value="1" />
+        <div class="target-input-row">
+          <input id="bass-track" type="number" min="1" step="1" value="1" />
+          <button
+            id="bass-track-random-patch"
+            type="button"
+            aria-label="bass ランダム音色"
+          >
+            r
+          </button>
+        </div>
       </div>
     </div>
     <section class="measure-grid-panel" aria-labelledby="measure-grid-heading">
