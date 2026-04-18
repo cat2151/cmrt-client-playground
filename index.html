@@ -137,10 +137,21 @@
             </table>
           </div>
         </section>
-      <details class="log-panel">
-        <summary>ログ</summary>
-        <div id="log"></div>
-      </details>
+      <section class="log-panel" aria-label="ログ">
+        <div class="log-panel__toolbar">
+          <button
+            id="log-toggle"
+            class="log-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="log"
+          >
+            ログ
+          </button>
+          <button id="smf-export" type="button">smf export</button>
+        </div>
+        <div id="log" hidden></div>
+      </section>
       <p class="footer">
         GitHub:
         <a href="https://github.com/cat2151/cmrt-client-playground">repository</a>

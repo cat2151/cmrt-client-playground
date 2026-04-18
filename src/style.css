@@ -322,7 +322,7 @@ button.transport-button:disabled:active {
 }
 
 .measure-grid-settings summary,
-.log-panel summary {
+.log-toggle {
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 1rem;
@@ -335,12 +335,12 @@ button.transport-button:disabled:active {
 }
 
 .measure-grid-settings summary::-webkit-details-marker,
-.log-panel summary::-webkit-details-marker {
+.log-toggle::-webkit-details-marker {
   display: none;
 }
 
 .measure-grid-settings[open] summary,
-.log-panel[open] summary {
+.log-toggle[aria-expanded="true"] {
   background: #f8fafc;
 }
 
@@ -511,6 +511,13 @@ button.transport-button:disabled:active {
   margin-top: 1rem;
 }
 
+.log-panel__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 #log {
   margin-top: 0.75rem;
   padding: 0.75rem;
@@ -522,6 +529,10 @@ button.transport-button:disabled:active {
   font-size: 0.9rem;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+#log[hidden] {
+  display: none;
 }
 
 .footer {
@@ -597,7 +608,7 @@ a {
   }
 
   .measure-grid-settings summary,
-  .log-panel summary,
+  .log-toggle,
   .measure-grid-settings__panel {
     color: inherit;
     background: #1f2937;
@@ -605,7 +616,7 @@ a {
   }
 
   .measure-grid-settings[open] summary,
-  .log-panel[open] summary {
+  .log-toggle[aria-expanded="true"] {
     background: #111827;
   }
 

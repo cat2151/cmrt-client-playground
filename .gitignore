@@ -141,5 +141,8 @@ vite.config.ts.timestamp-*
 # Temporary files
 tmp/
 
+# Generated browser assets fetched from cat2151/mmlabc-to-smf-rust main.
+public/vendor/mmlabc-to-smf-rust/
+
 # Lock files (using bun.lockb instead)
 package-lock.json

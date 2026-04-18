@@ -5,9 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/fetch-smf-assets.mjs --if-missing && tsc && vite build",
+    "fetch:smf-assets": "node scripts/fetch-smf-assets.mjs",
+    "postinstall": "node scripts/fetch-smf-assets.mjs",
     "preview": "vite preview",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "mmlabc-to-smf-rust": "github:cat2151/mmlabc-to-smf-rust"
   },
   "devDependencies": {
     "typescript": "~5.6.2",

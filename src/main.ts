@@ -40,6 +40,11 @@ import {
 import { createDebouncedCallback } from "./debounce.ts";
 import { sendMml } from "./send-mml.ts";
 import {
+  convertChordProgressionToSmf,
+  createMmlabcToSmfConverter,
+  SMF_EXPORT_FILENAME,
+} from "./smf-export.ts";
+import {
   getStartupErrorOverlay,
   STARTUP_CONNECTING_OVERLAY,
   type StartupOverlayState,
@@ -86,6 +91,8 @@ const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTML
 const gridMeasureCountEl = document.getElementById("grid-measure-count") as HTMLInputElement;
 const measureGridHeadEl = document.getElementById("measure-grid-head") as HTMLTableSectionElement;
 const measureGridBodyEl = document.getElementById("measure-grid-body") as HTMLTableSectionElement;
+const logToggleButtonEl = document.getElementById("log-toggle") as HTMLButtonElement;
+const smfExportButtonEl = document.getElementById("smf-export") as HTMLButtonElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
 const INPUT_STORAGE_KEY = "cmrt-client-playground.input";
 const CHORD_HISTORY_STORAGE_KEY = "cmrt-client-playground.chord.history";
@@ -115,6 +122,7 @@ const CHORD_HISTORY_SELECT_MAX_CH = 24;
 const CHORD_ANALYSIS_ERROR_BALLOON_MS = 5000;
 const CHORD_ANALYSIS_ERROR_BALLOON_VIEWPORT_MARGIN_PX = 8;
 const reportedLocalStorageErrors = new Set<string>();
+const smfConverter = createMmlabcToSmfConverter();
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
   trackStart: 0,
@@ -467,8 +475,7 @@ function collectManagedLocalStorageValues(): Record<string, string> {
   return values;
 }
 
-function downloadTextFile(filename: string, content: string): void {
-  const blob = new Blob([content], { type: "application/json" });
+function downloadBlobFile(filename: string, blob: Blob): void {
   const downloadUrl = URL.createObjectURL(blob);
   const linkEl = document.createElement("a");
   linkEl.href = downloadUrl;
@@ -477,6 +484,18 @@ function downloadTextFile(filename: string, content: string): void {
   linkEl.click();
   linkEl.remove();
   URL.revokeObjectURL(downloadUrl);
+}
+
+function downloadTextFile(filename: string, content: string): void {
+  downloadBlobFile(filename, new Blob([content], { type: "application/json" }));
+}
+
+function downloadBinaryFile(
+  filename: string,
+  content: Uint8Array,
+  mimeType: string
+): void {
+  downloadBlobFile(filename, new Blob([content], { type: mimeType }));
 }
 
 function exportManagedLocalStorage(): void {
@@ -659,6 +678,7 @@ let isCmrtReady = false;
 let appliedAbRepeatRange: StartupAbRepeatRange | null = null;
 let isPlaying = false;
 let chordAnalysisErrorBalloonTimer: number | null = null;
+let isSmfExporting = false;
 
 function syncPlaybackButtonState(): void {
   const buttonState = getPlaybackButtonState(isPlaying);
@@ -677,6 +697,11 @@ function hideChordAnalysisErrorBalloon(): void {
   chordAnalysisErrorBalloonEl.style.removeProperty(
     "--error-balloon-viewport-offset-y"
   );
+}
+
+function setLogVisible(visible: boolean): void {
+  logEl.hidden = !visible;
+  logToggleButtonEl.setAttribute("aria-expanded", visible ? "true" : "false");
 }
 
 function keepChordAnalysisErrorBalloonInsideViewport(): void {
@@ -944,6 +969,41 @@ async function sendCurrentMml(): Promise<void> {
   });
 }
 
+async function exportCurrentSmf(): Promise<void> {
+  if (isSmfExporting) {
+    return;
+  }
+
+  isSmfExporting = true;
+  smfExportButtonEl.disabled = true;
+  try {
+    if (inputEl.value.trim() !== "" && !isCurrentInputFromSelectedTemplate()) {
+      rememberChordHistoryEntry(inputEl.value);
+    }
+
+    const result = await convertChordProgressionToSmf(
+      inputEl.value,
+      smfConverter
+    );
+    if (!result.ok) {
+      appendLog(`ERROR: ${result.message}`);
+      if (result.chordAnalysisMessage !== undefined) {
+        showChordAnalysisErrorBalloon(result.chordAnalysisMessage);
+      }
+      return;
+    }
+
+    appendLog(`コード進行 → MML(SMF export): ${result.mml}`);
+    downloadBinaryFile(SMF_EXPORT_FILENAME, result.smfData, "audio/midi");
+    appendLog(
+      `SMF export: ${SMF_EXPORT_FILENAME} (${result.smfData.byteLength} bytes)`
+    );
+  } finally {
+    isSmfExporting = false;
+    smfExportButtonEl.disabled = false;
+  }
+}
+
 async function postRandomPatchForTarget(
   element: HTMLInputElement,
   name: "chord" | "bass"
@@ -1094,6 +1154,12 @@ playStopButtonEl.addEventListener("click", async () => {
 
   isPlaying = false;
   syncPlaybackButtonState();
+});
+logToggleButtonEl.addEventListener("click", () => {
+  setLogVisible(logEl.hidden);
+});
+smfExportButtonEl.addEventListener("click", () => {
+  void exportCurrentSmf();
 });
 localStorageExportButtonEl.addEventListener("click", () => {
   exportManagedLocalStorage();
