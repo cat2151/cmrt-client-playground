@@ -257,6 +257,10 @@ async function sendCurrentMml(): Promise<void> {
 }
 
 const debouncedSendMml = createDebouncedCallback(() => {
+  if (!inputEl.value.trim()) {
+    return;
+  }
+
   return sendCurrentMml();
 }, AUTO_SEND_DELAY_MS);
 
