@@ -14,6 +14,11 @@ import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
 } from "./auto-targets.ts";
+import {
+  addChordHistoryEntry,
+  parseChordHistoryStorage,
+  serializeChordHistory,
+} from "./chord-history.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import {
   createMeasureGridController,
@@ -48,6 +53,7 @@ const startupOverlayDetailEl = document.getElementById(
 ) as HTMLPreElement;
 const playStartButtonEl = document.getElementById("play-start") as HTMLButtonElement;
 const playStopButtonEl = document.getElementById("play-stop") as HTMLButtonElement;
+const chordHistorySelectEl = document.getElementById("chord-history") as HTMLSelectElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const localStorageExportButtonEl = document.getElementById(
   "local-storage-export"
@@ -69,12 +75,14 @@ const measureGridHeadEl = document.getElementById("measure-grid-head") as HTMLTa
 const measureGridBodyEl = document.getElementById("measure-grid-body") as HTMLTableSectionElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
 const INPUT_STORAGE_KEY = "cmrt-client-playground.input";
+const CHORD_HISTORY_STORAGE_KEY = "cmrt-client-playground.chord.history";
 const CHORD_TRACK_STORAGE_KEY = "cmrt-client-playground.chord.track";
 const CHORD_MEASURE_STORAGE_KEY = "cmrt-client-playground.chord.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 const APP_STORAGE_EXPORT_FILENAME = "cmrt-client-playground-local-storage.json";
 const APP_STORAGE_KEYS = [
   INPUT_STORAGE_KEY,
+  CHORD_HISTORY_STORAGE_KEY,
   CHORD_TRACK_STORAGE_KEY,
   CHORD_MEASURE_STORAGE_KEY,
   BASS_TRACK_STORAGE_KEY,
@@ -96,6 +104,7 @@ const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
   measureCount: 8,
 };
 const dawClient = DawClient.localDefault();
+let chordHistory: string[] = [];
 
 function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
@@ -196,8 +205,81 @@ function saveText(key: string, value: string): void {
   writeLocalStorageItem(key, value);
 }
 
+function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function formatChordHistoryOptionLabel(value: string): string {
+  return value.replace(/\s+/g, " ");
+}
+
+function renderChordHistorySelect(): void {
+  const currentInput = inputEl.value.trim();
+  chordHistorySelectEl.replaceChildren();
+
+  const placeholderEl = document.createElement("option");
+  placeholderEl.value = "";
+  placeholderEl.textContent =
+    chordHistory.length === 0 ? "chord history empty" : "chord history";
+  placeholderEl.disabled = true;
+  chordHistorySelectEl.append(placeholderEl);
+
+  let selectedHistoryEntry = false;
+  for (const entry of chordHistory) {
+    const optionEl = document.createElement("option");
+    optionEl.value = entry;
+    optionEl.textContent = formatChordHistoryOptionLabel(entry);
+    optionEl.title = entry;
+    if (entry === currentInput) {
+      optionEl.selected = true;
+      selectedHistoryEntry = true;
+    }
+    chordHistorySelectEl.append(optionEl);
+  }
+
+  placeholderEl.selected = !selectedHistoryEntry;
+  chordHistorySelectEl.disabled = chordHistory.length === 0;
+}
+
+function saveChordHistory(): void {
+  writeLocalStorageItem(CHORD_HISTORY_STORAGE_KEY, serializeChordHistory(chordHistory));
+}
+
+function loadStoredChordHistory(): void {
+  const storedValue = readLocalStorageItem(CHORD_HISTORY_STORAGE_KEY);
+  if (storedValue === null) {
+    chordHistory = [];
+    renderChordHistorySelect();
+    return;
+  }
+
+  const parsed = parseChordHistoryStorage(storedValue);
+  if (!parsed.ok) {
+    appendLog(`ERROR: chord history の復帰に失敗しました: ${parsed.message}`);
+    chordHistory = [];
+    renderChordHistorySelect();
+    return;
+  }
+
+  chordHistory = parsed.history;
+  renderChordHistorySelect();
+}
+
+function rememberChordHistoryEntry(input: string): void {
+  const nextHistory = addChordHistoryEntry(chordHistory, input);
+  if (areStringArraysEqual(chordHistory, nextHistory)) {
+    renderChordHistorySelect();
+    return;
+  }
+
+  chordHistory = nextHistory;
+  saveChordHistory();
+  renderChordHistorySelect();
+}
+
 function persistTopLevelStateToStorage(): void {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
+  saveChordHistory();
   saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
   saveTarget(CHORD_MEASURE_STORAGE_KEY, chordMeasureEl);
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
@@ -208,6 +290,7 @@ function restoreTopLevelStateFromStorage(): {
   hasStoredBassTrack: boolean;
 } {
   loadStoredText(INPUT_STORAGE_KEY, "", inputEl);
+  loadStoredChordHistory();
   const hasStoredChordTrack = loadStoredTarget(CHORD_TRACK_STORAGE_KEY, DEFAULT_TRACK, chordTrackEl);
   loadStoredTarget(CHORD_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, chordMeasureEl);
   const hasStoredBassTrack = loadStoredTarget(BASS_TRACK_STORAGE_KEY, DEFAULT_TRACK, bassTrackEl);
@@ -254,6 +337,14 @@ function validateImportedStorageValues(values: Record<string, string>): string |
     const value = values[key];
     if (value !== undefined && parseNonNegativeInteger(value) === null) {
       return `${key} には 0 以上の整数を指定してください`;
+    }
+  }
+
+  const chordHistoryValue = values[CHORD_HISTORY_STORAGE_KEY];
+  if (chordHistoryValue !== undefined) {
+    const parsed = parseChordHistoryStorage(chordHistoryValue);
+    if (!parsed.ok) {
+      return `${CHORD_HISTORY_STORAGE_KEY} は chord history として読み取れません: ${parsed.message}`;
     }
   }
 
@@ -626,6 +717,7 @@ async function sendCurrentMml(): Promise<void> {
   if (chordTrack === null || chordMeasure === null) {
     return;
   }
+  rememberChordHistoryEntry(inputEl.value);
   await sendMml({
     input: inputEl.value,
     chordTrack,
@@ -686,6 +778,14 @@ function syncTopLevelAbRepeat(): void {
   });
 }
 
+function syncChordInputStateAfterChange(): void {
+  saveText(INPUT_STORAGE_KEY, inputEl.value);
+  renderChordHistorySelect();
+  syncMeasureGridHighlightTargets();
+  syncTopLevelAutoSend();
+  syncTopLevelAbRepeat();
+}
+
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
 measureGridController.syncControls();
 measureGridController.render();
@@ -721,10 +821,18 @@ bassTrackEl.addEventListener("input", () => {
   syncTopLevelAutoSend();
 });
 inputEl.addEventListener("input", () => {
-  saveText(INPUT_STORAGE_KEY, inputEl.value);
-  syncMeasureGridHighlightTargets();
-  syncTopLevelAutoSend();
-  syncTopLevelAbRepeat();
+  syncChordInputStateAfterChange();
+});
+chordHistorySelectEl.addEventListener("change", () => {
+  const selectedChord = chordHistorySelectEl.value;
+  if (selectedChord === "") {
+    return;
+  }
+
+  inputEl.value = selectedChord;
+  rememberChordHistoryEntry(inputEl.value);
+  syncChordInputStateAfterChange();
+  inputEl.focus();
 });
 playStartButtonEl.addEventListener("click", async () => {
   const started = await runPlaybackAction({
