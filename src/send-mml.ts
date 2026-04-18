@@ -171,15 +171,15 @@ export async function sendMml(options: SendMmlOptions): Promise<void> {
     options.reflectValue(options.chordTrack, preparedMeasure.measure, splitMml.chordMml);
 
     if (splitMml.bassMml !== "") {
-      const targetBassMeasure = bassTargets.measure + index;
+      const targetBassMeasure = preparedMeasure.measure;
 
-        appendMeasureLog(
-          options.appendLog,
-          isMultipleMeasures,
-          index,
-          preparedMeasures.length,
-          `${splitMml.bassMml} を bass track の measure ${targetBassMeasure} に割り当て`
-        );
+      appendMeasureLog(
+        options.appendLog,
+        isMultipleMeasures,
+        index,
+        preparedMeasures.length,
+        `${splitMml.bassMml} を bass track の measure ${targetBassMeasure} に割り当て`
+      );
       appendMeasureLog(
         options.appendLog,
         isMultipleMeasures,
