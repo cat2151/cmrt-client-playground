@@ -6,72 +6,90 @@
     <title>cmrt-client-playground</title>
   </head>
   <body>
-    <h1>cmrt-client-playground</h1>
-    <label for="input">コード入力（例: C Am G7 / 改行可）</label>
-    <textarea id="input" placeholder="C Am G7"></textarea>
-    <div class="target-grid">
-      <div>
-        <label for="track">chord track</label>
-        <div class="target-input-row">
-          <input id="track" type="number" min="1" step="1" value="1" />
-          <button id="track-random-patch" type="button" aria-label="chord ランダム音色">
-            r
-          </button>
-        </div>
-      </div>
-      <div>
-        <label for="measure">chord meas</label>
-        <input id="measure" type="number" min="1" step="1" value="1" />
-      </div>
-      <div>
-        <label for="bass-track">bass track</label>
-        <div class="target-input-row">
-          <input id="bass-track" type="number" min="1" step="1" value="1" />
-          <button
-            id="bass-track-random-patch"
-            type="button"
-            aria-label="bass ランダム音色"
-          >
-            r
-          </button>
-        </div>
+    <div
+      id="startup-overlay"
+      class="startup-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="startup-overlay-title"
+      aria-describedby="startup-overlay-message startup-overlay-detail"
+    >
+      <div class="startup-overlay__dialog">
+        <h2 id="startup-overlay-title" class="startup-overlay__title">cmrt接続確認中...</h2>
+        <p id="startup-overlay-message" class="startup-overlay__message">
+          しばらくお待ちください
+        </p>
+        <pre id="startup-overlay-detail" class="startup-overlay__detail" hidden></pre>
       </div>
     </div>
-    <section class="measure-grid-panel" aria-labelledby="measure-grid-heading">
-      <div class="measure-grid-toolbar">
-        <h2 id="measure-grid-heading">cmrt meas grid</h2>
+    <div id="app-shell" inert aria-busy="true">
+      <h1>cmrt-client-playground</h1>
+      <label for="input">コード入力（例: C Am G7 / 改行可）</label>
+      <textarea id="input" placeholder="C Am G7"></textarea>
+      <div class="target-grid">
+        <div>
+          <label for="track">chord track</label>
+          <div class="target-input-row">
+            <input id="track" type="number" min="1" step="1" value="1" />
+            <button id="track-random-patch" type="button" aria-label="chord ランダム音色">
+              r
+            </button>
+          </div>
+        </div>
+        <div>
+          <label for="measure">chord meas</label>
+          <input id="measure" type="number" min="1" step="1" value="1" />
+        </div>
+        <div>
+          <label for="bass-track">bass track</label>
+          <div class="target-input-row">
+            <input id="bass-track" type="number" min="1" step="1" value="1" />
+            <button
+              id="bass-track-random-patch"
+              type="button"
+              aria-label="bass ランダム音色"
+            >
+              r
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="target-grid measure-grid-targets">
-        <div>
-          <label for="grid-track-start">grid track start</label>
-          <input id="grid-track-start" type="number" min="1" step="1" value="1" />
+      <section class="measure-grid-panel" aria-labelledby="measure-grid-heading">
+        <div class="measure-grid-toolbar">
+          <h2 id="measure-grid-heading">cmrt meas grid</h2>
         </div>
-        <div>
-          <label for="grid-track-count">grid track count</label>
-          <input id="grid-track-count" type="number" min="1" step="1" value="4" />
+        <div class="target-grid measure-grid-targets">
+          <div>
+            <label for="grid-track-start">grid track start</label>
+            <input id="grid-track-start" type="number" min="1" step="1" value="1" />
+          </div>
+          <div>
+            <label for="grid-track-count">grid track count</label>
+            <input id="grid-track-count" type="number" min="1" step="1" value="4" />
+          </div>
+          <div>
+            <label for="grid-measure-start">grid meas start</label>
+            <input id="grid-measure-start" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label for="grid-measure-count">grid meas count</label>
+            <input id="grid-measure-count" type="number" min="1" step="1" value="8" />
+          </div>
         </div>
-        <div>
-          <label for="grid-measure-start">grid meas start</label>
-          <input id="grid-measure-start" type="number" min="0" step="1" value="0" />
+        <div class="measure-grid-scroll">
+          <table class="measure-grid-table">
+            <thead id="measure-grid-head"></thead>
+            <tbody id="measure-grid-body"></tbody>
+          </table>
         </div>
-        <div>
-          <label for="grid-measure-count">grid meas count</label>
-          <input id="grid-measure-count" type="number" min="1" step="1" value="8" />
-        </div>
-      </div>
-      <div class="measure-grid-scroll">
-        <table class="measure-grid-table">
-          <thead id="measure-grid-head"></thead>
-          <tbody id="measure-grid-body"></tbody>
-        </table>
-      </div>
-    </section>
-    <label class="log-label" for="log">ログ</label>
-    <div id="log"></div>
-    <p class="footer">
-      GitHub:
-      <a href="https://github.com/cat2151/cmrt-client-playground">cat2151/cmrt-client-playground</a>
-    </p>
+      </section>
+      <label class="log-label" for="log">ログ</label>
+      <div id="log"></div>
+      <p class="footer">
+        GitHub:
+        <a href="https://github.com/cat2151/cmrt-client-playground">cat2151/cmrt-client-playground</a>
+      </p>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

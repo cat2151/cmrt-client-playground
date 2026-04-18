@@ -18,7 +18,23 @@ import {
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
 import { sendMml } from "./send-mml.ts";
+import {
+  getStartupErrorOverlay,
+  STARTUP_CONNECTING_OVERLAY,
+  type StartupOverlayState,
+} from "./startup-overlay.ts";
 
+const appShellEl = document.getElementById("app-shell") as HTMLDivElement;
+const startupOverlayEl = document.getElementById("startup-overlay") as HTMLDivElement;
+const startupOverlayTitleEl = document.getElementById(
+  "startup-overlay-title"
+) as HTMLHeadingElement;
+const startupOverlayMessageEl = document.getElementById(
+  "startup-overlay-message"
+) as HTMLParagraphElement;
+const startupOverlayDetailEl = document.getElementById(
+  "startup-overlay-detail"
+) as HTMLPreElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
 const trackRandomPatchButtonEl = document.getElementById(
@@ -44,6 +60,7 @@ const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
 const AUTO_TARGET_TRACK_SCAN_END = 16;
 const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
+const STARTUP_CONNECTIVITY_RETRY_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
 
@@ -59,6 +76,26 @@ function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
   logEl.textContent += `[${timestamp}] ${message}\n`;
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setStartupOverlayState(state: StartupOverlayState): void {
+  startupOverlayTitleEl.textContent = state.title;
+  startupOverlayMessageEl.textContent = state.message;
+  startupOverlayDetailEl.textContent = state.detail ?? "";
+  startupOverlayDetailEl.hidden = state.detail === null;
+}
+
+function showStartupOverlay(state: StartupOverlayState): void {
+  setStartupOverlayState(state);
+  startupOverlayEl.hidden = false;
+  appShellEl.setAttribute("inert", "");
+  appShellEl.setAttribute("aria-busy", "true");
+}
+
+function hideStartupOverlay(): void {
+  startupOverlayEl.hidden = true;
+  appShellEl.removeAttribute("inert");
+  appShellEl.removeAttribute("aria-busy");
 }
 
 function loadStoredTarget(
@@ -151,6 +188,10 @@ let isReloadingMeasureGrid = false;
 let shouldReloadMeasureGridAgain = false;
 let measureGridQueuedReloadTimer: number | null = null;
 let lastMeasureGridReloadStartedAt = 0;
+let measureGridAutoFetchTimer: number | null = null;
+let startupConnectivityRetryTimer: number | null = null;
+let isCheckingStartupConnectivity = false;
+let isCmrtReady = false;
 
 function cancelQueuedMeasureGridReload(): void {
   if (measureGridQueuedReloadTimer === null) {
@@ -189,6 +230,26 @@ async function reloadMeasureGridFromCmrt(): Promise<void> {
       queueMeasureGridReload();
     }
   }
+}
+
+function clearStartupConnectivityRetry(): void {
+  if (startupConnectivityRetryTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(startupConnectivityRetryTimer);
+  startupConnectivityRetryTimer = null;
+}
+
+function scheduleStartupConnectivityRetry(): void {
+  if (isCmrtReady || startupConnectivityRetryTimer !== null) {
+    return;
+  }
+
+  startupConnectivityRetryTimer = window.setTimeout(() => {
+    startupConnectivityRetryTimer = null;
+    void ensureCmrtReady();
+  }, STARTUP_CONNECTIVITY_RETRY_MS);
 }
 
 async function autoSelectTracksFromCmrt(options: {
@@ -239,6 +300,51 @@ async function autoSelectTracksFromCmrt(options: {
       `起動時に track を自動選択: ${selectedTargets.join(", ")}`
     );
     syncMeasureGridHighlightTargets();
+  }
+}
+
+async function startAppAfterCmrtReady(options: {
+  shouldSelectChordTrack: boolean;
+  shouldSelectBassTrack: boolean;
+}): Promise<void> {
+  hideStartupOverlay();
+  clearStartupConnectivityRetry();
+  void applyStartupAbRepeat().catch((error: unknown) => {
+    appendLog(`ERROR: 起動時の A-B repeat 設定で予期しない例外が発生しました: ${String(error)}`);
+  });
+  void autoSelectTracksFromCmrt(options);
+  void reloadMeasureGridFromCmrt();
+
+  if (measureGridAutoFetchTimer !== null) {
+    return;
+  }
+
+  measureGridAutoFetchTimer = window.setInterval(() => {
+    void reloadMeasureGridFromCmrt();
+  }, GRID_AUTO_FETCH_INTERVAL_MS);
+}
+
+async function ensureCmrtReady(): Promise<void> {
+  if (isCmrtReady || isCheckingStartupConnectivity) {
+    return;
+  }
+
+  isCheckingStartupConnectivity = true;
+  try {
+    const result = await dawClient.getMmls();
+    if (typeof result === "object" && result !== null && "kind" in result) {
+      showStartupOverlay(getStartupErrorOverlay(result));
+      scheduleStartupConnectivityRetry();
+      return;
+    }
+
+    isCmrtReady = true;
+    await startAppAfterCmrtReady({
+      shouldSelectChordTrack: !hasStoredChordTrack,
+      shouldSelectBassTrack: !hasStoredBassTrack,
+    });
+  } finally {
+    isCheckingStartupConnectivity = false;
   }
 }
 
@@ -329,20 +435,14 @@ const hasStoredBassTrack = loadStoredTarget(
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
-void applyStartupAbRepeat().catch((error: unknown) => {
-  appendLog(`ERROR: 起動時の A-B repeat 設定で予期しない例外が発生しました: ${String(error)}`);
-});
+showStartupOverlay(STARTUP_CONNECTING_OVERLAY);
+void ensureCmrtReady();
 
-void autoSelectTracksFromCmrt({
-  shouldSelectChordTrack: !hasStoredChordTrack,
-  shouldSelectBassTrack: !hasStoredBassTrack,
-});
-void reloadMeasureGridFromCmrt();
-const measureGridAutoFetchTimer = window.setInterval(() => {
-  void reloadMeasureGridFromCmrt();
-}, GRID_AUTO_FETCH_INTERVAL_MS);
 window.addEventListener("beforeunload", () => {
-  window.clearInterval(measureGridAutoFetchTimer);
+  if (measureGridAutoFetchTimer !== null) {
+    window.clearInterval(measureGridAutoFetchTimer);
+  }
+  clearStartupConnectivityRetry();
   cancelQueuedMeasureGridReload();
 });
 

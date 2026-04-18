@@ -7,6 +7,59 @@ body {
   background: #ffffff;
 }
 
+#app-shell[inert] {
+  pointer-events: none;
+  user-select: none;
+}
+
+.startup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgb(17 24 39 / 0.55);
+}
+
+.startup-overlay[hidden] {
+  display: none;
+}
+
+.startup-overlay__dialog {
+  width: min(100%, 32rem);
+  padding: 1.25rem 1.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgb(15 23 42 / 0.18);
+}
+
+.startup-overlay__title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.startup-overlay__message {
+  margin: 0.75rem 0 0;
+  line-height: 1.5;
+}
+
+.startup-overlay__detail {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font: inherit;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 h1 {
   font-size: 1.4rem;
 }
@@ -222,6 +275,22 @@ a {
   body {
     color: #e5e7eb;
     background: #111827;
+  }
+
+  .startup-overlay {
+    background: rgb(2 6 23 / 0.72);
+  }
+
+  .startup-overlay__dialog {
+    background: #111827;
+    border-color: #4b5563;
+    box-shadow: 0 24px 48px rgb(2 6 23 / 0.45);
+  }
+
+  .startup-overlay__detail {
+    background: #0f172a;
+    border-color: #334155;
+    color: #e5e7eb;
   }
 
   textarea,
