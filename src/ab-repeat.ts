@@ -8,14 +8,14 @@ export interface StartupAbRepeatRange {
   endMeasure: number;
 }
 
-function getChordMeasureSpan(input: string, chordMeasure: number): number {
+function getChordMeasureSpan(input: string, startMeasure: number): number {
   const mml = chordToMml(input);
   if (mml === null) {
     return 1;
   }
 
   const { mml: sanitizedMml } = sanitizeMmlForPost(mml);
-  const plannedMeasures = planMeasureInputs(sanitizedMml, chordMeasure);
+  const plannedMeasures = planMeasureInputs(sanitizedMml, startMeasure);
   if (plannedMeasures === null || plannedMeasures.length === 0) {
     return 1;
   }
