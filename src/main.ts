@@ -21,8 +21,14 @@ import { sendMml } from "./send-mml.ts";
 
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
+const trackRandomPatchButtonEl = document.getElementById(
+  "track-random-patch"
+) as HTMLButtonElement;
 const measureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
+const bassTrackRandomPatchButtonEl = document.getElementById(
+  "bass-track-random-patch"
+) as HTMLButtonElement;
 const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
@@ -277,6 +283,27 @@ async function sendCurrentMml(): Promise<void> {
   });
 }
 
+async function postRandomPatchForTarget(
+  element: HTMLInputElement,
+  name: "chord" | "bass"
+): Promise<void> {
+  const track = getTargetValue(element, `${name} track`);
+  if (track === null) {
+    return;
+  }
+
+  const result = await dawClient.postRandomPatch(track);
+  if (result !== undefined) {
+    appendLog(
+      `ERROR: ${name} のランダム音色設定に失敗しました: ${dawClientErrorMessage(result)}`
+    );
+    return;
+  }
+
+  appendLog(`${name} track=${track} にランダム音色を設定しました`);
+  void reloadMeasureGridFromCmrt();
+}
+
 const debouncedSendMml = createDebouncedCallback(() => {
   if (!inputEl.value.trim()) {
     return;
@@ -333,6 +360,12 @@ bassTrackEl.addEventListener("input", () => {
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
+});
+trackRandomPatchButtonEl.addEventListener("click", () => {
+  void postRandomPatchForTarget(trackEl, "chord");
+});
+bassTrackRandomPatchButtonEl.addEventListener("click", () => {
+  void postRandomPatchForTarget(bassTrackEl, "bass");
 });
 inputEl.addEventListener("input", () => {
   syncTopLevelAutoSend();

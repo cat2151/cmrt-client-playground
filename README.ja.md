@@ -32,6 +32,7 @@ SSoT: https://github.com/cat2151/clap-mml-render-tui/blob/main/daw-client-lib/sr
 | `postMml(track, measure, mml)` | `POST /mml` | MML を指定トラック・小節に書き込む |
 | `postMixer(track, db)` | `POST /mixer` | ミキサーのボリュームを設定する |
 | `postPatch(track, patch)` | `POST /patch` | パッチ（音色）を設定する |
+| `postRandomPatch(track)` | `POST /patch/random` | 指定トラックの音色をランダム設定する |
 | `getPatches()` | `GET /patches` | 利用可能なパッチ一覧を取得する |
 
 デフォルト接続先: `http://127.0.0.1:62151`

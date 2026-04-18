@@ -45,6 +45,21 @@ textarea {
   padding: 0.4rem 0.5rem;
 }
 
+.target-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.target-input-row input[type="number"] {
+  flex: 1;
+}
+
+.target-input-row button {
+  flex: 0 0 auto;
+  min-width: 2.5rem;
+  padding-inline: 0.75rem;
+}
+
 button {
   padding: 0.4rem 1rem;
   cursor: pointer;

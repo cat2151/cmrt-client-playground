@@ -235,6 +235,26 @@ describe("DawClient.postAbRepeat", () => {
   });
 });
 
+describe("DawClient.postRandomPatch", () => {
+  it("posts the requested track to /patch/random", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: "ok" }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.postRandomPatch(7);
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/patch/random`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track: 7 }),
+    });
+    expect(result).toBeUndefined();
+  });
+});
+
 describe("DawClient.getPatches", () => {
   it("rejects mixed arrays", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
