@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   expandMeasureGridConfigToInclude,
+  getMeasureGridArrowNavigationTarget,
+  getMeasureGridCaretPosition,
   getMeasureGridCellHighlight,
+  getMeasureGridCellExpandedWidthCh,
   getMmlsCellValue,
   getVisibleMeasures,
   getVisibleTracks,
@@ -174,6 +177,225 @@ describe("getMeasureGridCellHighlight", () => {
         bassTarget: null,
       })
     ).toBe("none");
+  });
+});
+
+describe("getMeasureGridCellExpandedWidthCh", () => {
+  it("adds a small editing buffer to the current text length", () => {
+    expect(getMeasureGridCellExpandedWidthCh("l8cdef")).toBe(8);
+  });
+
+  it("keeps empty values focusable without collapsing the editor", () => {
+    expect(getMeasureGridCellExpandedWidthCh("")).toBe(2);
+  });
+});
+
+describe("getMeasureGridArrowNavigationTarget", () => {
+  it("moves left only when the caret is already at the start", () => {
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowLeft",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 0,
+        selectionEnd: 0,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toEqual({
+      track: 2,
+      measure: 3,
+      selectionBehavior: "end",
+    });
+
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowLeft",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 1,
+        selectionEnd: 1,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toBeNull();
+  });
+
+  it("moves right only when the caret is already at the end", () => {
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowRight",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 5,
+        selectionEnd: 5,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toEqual({
+      track: 2,
+      measure: 5,
+      selectionBehavior: "start",
+    });
+
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowRight",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 0,
+        selectionEnd: 5,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toBeNull();
+  });
+
+  it("preserves vertical caret offset from the start when the caret is in the front half", () => {
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowUp",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 2,
+        selectionEnd: 2,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toEqual({
+      track: 1,
+      measure: 4,
+      selectionBehavior: "preserve",
+      caretOffset: 2,
+      caretOffsetOrigin: "start",
+    });
+  });
+
+  it("preserves vertical caret offset from the end when the caret is in the back half", () => {
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowDown",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 4,
+        selectionEnd: 4,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toEqual({
+      track: 3,
+      measure: 4,
+      selectionBehavior: "preserve",
+      caretOffset: 1,
+      caretOffsetOrigin: "end",
+    });
+  });
+
+  it("stays in place at the edges and during composition or modifier use", () => {
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowLeft",
+        track: 2,
+        measure: 3,
+        value: "l8cde",
+        selectionStart: 0,
+        selectionEnd: 0,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toBeNull();
+
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowUp",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 2,
+        selectionEnd: 2,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: true,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      })
+    ).toBeNull();
+
+    expect(
+      getMeasureGridArrowNavigationTarget({
+        key: "ArrowDown",
+        track: 2,
+        measure: 4,
+        value: "l8cde",
+        selectionStart: 2,
+        selectionEnd: 2,
+        visibleTracks: [1, 2, 3],
+        visibleMeasures: [3, 4, 5],
+        isComposing: false,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: true,
+      })
+    ).toBeNull();
+  });
+});
+
+describe("getMeasureGridCaretPosition", () => {
+  it("keeps the same offset from the start when preserving from the front half", () => {
+    expect(getMeasureGridCaretPosition("abcd", "preserve", 2, "start")).toBe(2);
+  });
+
+  it("keeps the same offset from the end when preserving from the back half", () => {
+    expect(getMeasureGridCaretPosition("abcdef", "preserve", 2, "end")).toBe(4);
+  });
+
+  it("clamps to the destination edge when the destination text is shorter", () => {
+    expect(getMeasureGridCaretPosition("abc", "preserve", 5, "start")).toBe(3);
+    expect(getMeasureGridCaretPosition("abc", "preserve", 5, "end")).toBe(0);
   });
 });
 

@@ -25,6 +25,40 @@ export interface MeasureGridHighlightTargets {
   bassTarget: MeasureGridTarget | null;
 }
 
+export type MeasureGridNavigationSelectionBehavior = "start" | "end" | "preserve";
+
+type MeasureGridNavigationCaretOrigin = "start" | "end";
+
+interface MeasureGridArrowNavigationRequest {
+  key: string;
+  track: number;
+  measure: number;
+  value: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  visibleTracks: number[];
+  visibleMeasures: number[];
+  isComposing: boolean;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+}
+
+interface MeasureGridArrowNavigationTarget {
+  track: number;
+  measure: number;
+  selectionBehavior: MeasureGridNavigationSelectionBehavior;
+  caretOffset?: number;
+  caretOffsetOrigin?: MeasureGridNavigationCaretOrigin;
+}
+
+interface MeasureGridRenderedCellElements {
+  shellEl: HTMLDivElement;
+  previewEl: HTMLDivElement;
+  inputEl: HTMLInputElement;
+}
+
 interface MeasureGridElements {
   trackStartEl: HTMLInputElement;
   trackCountEl: HTMLInputElement;
@@ -58,6 +92,128 @@ function getMeasureGridCellKey(track: number, measure: number): string {
   return `${track}:${measure}`;
 }
 
+export function getMeasureGridArrowNavigationTarget(
+  request: MeasureGridArrowNavigationRequest
+): MeasureGridArrowNavigationTarget | null {
+  if (
+    request.isComposing ||
+    request.altKey ||
+    request.ctrlKey ||
+    request.metaKey ||
+    request.shiftKey
+  ) {
+    return null;
+  }
+
+  const trackIndex = request.visibleTracks.indexOf(request.track);
+  const measureIndex = request.visibleMeasures.indexOf(request.measure);
+  if (trackIndex === -1 || measureIndex === -1) {
+    return null;
+  }
+
+  switch (request.key) {
+    case "ArrowLeft":
+      if (
+        request.selectionStart === null ||
+        request.selectionEnd === null ||
+        request.selectionStart !== request.selectionEnd ||
+        request.selectionStart !== 0 ||
+        measureIndex === 0
+      ) {
+        return null;
+      }
+      return {
+        track: request.track,
+        measure: request.visibleMeasures[measureIndex - 1],
+        selectionBehavior: "end",
+      };
+    case "ArrowRight":
+      if (
+        request.selectionStart === null ||
+        request.selectionEnd === null ||
+        request.selectionStart !== request.selectionEnd ||
+        request.selectionEnd !== request.value.length ||
+        measureIndex === request.visibleMeasures.length - 1
+      ) {
+        return null;
+      }
+      return {
+        track: request.track,
+        measure: request.visibleMeasures[measureIndex + 1],
+        selectionBehavior: "start",
+      };
+    case "ArrowUp":
+      if (trackIndex === 0) {
+        return null;
+      }
+      return getMeasureGridVerticalNavigationTarget(
+        request.visibleTracks[trackIndex - 1],
+        request.measure,
+        request.value,
+        request.selectionStart
+      );
+    case "ArrowDown":
+      if (trackIndex === request.visibleTracks.length - 1) {
+        return null;
+      }
+      return getMeasureGridVerticalNavigationTarget(
+        request.visibleTracks[trackIndex + 1],
+        request.measure,
+        request.value,
+        request.selectionStart
+      );
+    default:
+      return null;
+  }
+}
+
+function getMeasureGridVerticalNavigationTarget(
+  track: number,
+  measure: number,
+  value: string,
+  selectionStart: number | null
+): MeasureGridArrowNavigationTarget {
+  const caretPosition = selectionStart ?? 0;
+  if (caretPosition * 2 <= value.length) {
+    return {
+      track,
+      measure,
+      selectionBehavior: "preserve",
+      caretOffset: caretPosition,
+      caretOffsetOrigin: "start",
+    };
+  }
+
+  return {
+    track,
+    measure,
+    selectionBehavior: "preserve",
+    caretOffset: value.length - caretPosition,
+    caretOffsetOrigin: "end",
+  };
+}
+
+export function getMeasureGridCaretPosition(
+  value: string,
+  selectionBehavior: MeasureGridNavigationSelectionBehavior,
+  caretOffset = 0,
+  caretOffsetOrigin: MeasureGridNavigationCaretOrigin = "start"
+): number {
+  switch (selectionBehavior) {
+    case "start":
+      return 0;
+    case "end":
+      return value.length;
+    case "preserve":
+      if (caretOffsetOrigin === "start") {
+        return Math.min(value.length, caretOffset);
+      }
+      return Math.max(0, value.length - caretOffset);
+    default:
+      return 0;
+  }
+}
+
 export function getMeasureGridCellHighlight(
   track: number,
   measure: number,
@@ -81,44 +237,85 @@ export function getMeasureGridCellHighlight(
 }
 
 function setMeasureGridCellHighlight(
-  input: HTMLInputElement,
+  shellEl: HTMLDivElement,
   highlight: "none" | "chord" | "bass" | "both"
 ): void {
-  input.classList.toggle(
+  shellEl.classList.toggle(
     "measure-grid-cell--target-chord",
     highlight === "chord" || highlight === "both"
   );
-  input.classList.toggle(
+  shellEl.classList.toggle(
     "measure-grid-cell--target-bass",
     highlight === "bass" || highlight === "both"
   );
-  input.classList.toggle("measure-grid-cell--target-both", highlight === "both");
+  shellEl.classList.toggle("measure-grid-cell--target-both", highlight === "both");
 }
 
 function setMeasureGridCellStatus(
-  input: HTMLInputElement,
+  cell: MeasureGridRenderedCellElements,
   status: "idle" | "loading" | "syncing" | "error",
   title = ""
 ): void {
   const isBusy = status === "loading" || status === "syncing";
   const isInvalid = status === "error";
+  const { shellEl, inputEl } = cell;
 
-  input.classList.toggle("measure-grid-cell--loading", status === "loading");
-  input.classList.toggle("measure-grid-cell--syncing", status === "syncing");
-  input.classList.toggle("measure-grid-cell--error", isInvalid);
-  input.title = title;
+  shellEl.classList.toggle("measure-grid-cell--loading", status === "loading");
+  shellEl.classList.toggle("measure-grid-cell--syncing", status === "syncing");
+  shellEl.classList.toggle("measure-grid-cell--error", isInvalid);
+  inputEl.title = title;
 
   if (isBusy) {
-    input.setAttribute("aria-busy", "true");
+    inputEl.setAttribute("aria-busy", "true");
   } else {
-    input.removeAttribute("aria-busy");
+    inputEl.removeAttribute("aria-busy");
   }
 
   if (isInvalid) {
-    input.setAttribute("aria-invalid", "true");
+    inputEl.setAttribute("aria-invalid", "true");
   } else {
-    input.removeAttribute("aria-invalid");
+    inputEl.removeAttribute("aria-invalid");
   }
+}
+
+function syncMeasureGridCellPreview(previewEl: HTMLDivElement, value: string): void {
+  previewEl.textContent = value === "" ? "\u00a0" : value;
+}
+
+export function getMeasureGridCellExpandedWidthCh(value: string): number {
+  return Math.max(1, value.length + 2);
+}
+
+function syncMeasureGridCellExpandedWidth(shellEl: HTMLDivElement, value: string): void {
+  shellEl.style.setProperty(
+    "--measure-grid-cell-expanded-width",
+    `${getMeasureGridCellExpandedWidthCh(value)}ch`
+  );
+}
+
+function setMeasureGridCellValue(
+  cell: MeasureGridRenderedCellElements,
+  value: string
+): void {
+  cell.inputEl.value = value;
+  syncMeasureGridCellPreview(cell.previewEl, value);
+  syncMeasureGridCellExpandedWidth(cell.shellEl, value);
+}
+
+function focusMeasureGridInput(
+  inputEl: HTMLInputElement,
+  selectionBehavior: MeasureGridNavigationSelectionBehavior,
+  caretOffset = 0,
+  caretOffsetOrigin: MeasureGridNavigationCaretOrigin = "start"
+): void {
+  inputEl.focus();
+  const caretPosition = getMeasureGridCaretPosition(
+    inputEl.value,
+    selectionBehavior,
+    caretOffset,
+    caretOffsetOrigin
+  );
+  inputEl.setSelectionRange(caretPosition, caretPosition);
 }
 
 /**
@@ -173,6 +370,7 @@ export function createMeasureGridController(
   } = options;
   const measureGridValues = new Map<string, string>();
   const measureGridInputs = new Map<string, HTMLInputElement>();
+  const measureGridRenderedCells = new Map<string, MeasureGridRenderedCellElements>();
   const measureGridSyncers = new Map<
     string,
     ReturnType<typeof createDebouncedCallback>
@@ -229,12 +427,12 @@ export function createMeasureGridController(
   }
 
   function updateMeasureGridHighlights(): void {
-    for (const [key, input] of measureGridInputs.entries()) {
+    for (const [key, cell] of measureGridRenderedCells.entries()) {
       const [trackText, measureText] = key.split(":");
       const track = Number(trackText);
       const measure = Number(measureText);
       setMeasureGridCellHighlight(
-        input,
+        cell.shellEl,
         getMeasureGridCellHighlight(track, measure, measureGridHighlightTargets)
       );
     }
@@ -243,9 +441,11 @@ export function createMeasureGridController(
   function render(): void {
     cancelMeasureGridSyncers();
     measureGridInputs.clear();
+    measureGridRenderedCells.clear();
     elements.headEl.textContent = "";
     elements.bodyEl.textContent = "";
 
+    const visibleTracks = getVisibleTracks(measureGridConfig);
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
     const headRow = document.createElement("tr");
     const cornerCell = document.createElement("th");
@@ -261,7 +461,7 @@ export function createMeasureGridController(
 
     elements.headEl.append(headRow);
 
-    for (const track of getVisibleTracks(measureGridConfig)) {
+    for (const track of visibleTracks) {
       const row = document.createElement("tr");
       const rowHeader = document.createElement("th");
       rowHeader.scope = "row";
@@ -270,14 +470,21 @@ export function createMeasureGridController(
 
       for (const measure of visibleMeasures) {
         const cell = document.createElement("td");
+        const shellEl = document.createElement("div");
+        const previewEl = document.createElement("div");
         const input = document.createElement("input");
         const key = getMeasureGridCellKey(track, measure);
         let editVersion = 0;
+        const renderedCell: MeasureGridRenderedCellElements = {
+          shellEl,
+          previewEl,
+          inputEl: input,
+        };
         const syncer = createDebouncedCallback(async () => {
           const sentValue = input.value;
           const sentEditVersion = editVersion;
           setMeasureGridCellStatus(
-            input,
+            renderedCell,
             "syncing",
             `POST ${track}:${measure} を cmrt と同期中`
           );
@@ -295,41 +502,83 @@ export function createMeasureGridController(
 
           if (result !== undefined) {
             const errorMessage = dawClientErrorMessage(result);
-            setMeasureGridCellStatus(input, "error", errorMessage);
+            setMeasureGridCellStatus(renderedCell, "error", errorMessage);
             appendLog(`ERROR: grid POST ${track}:${measure} に失敗しました: ${errorMessage}`);
             return;
           }
 
           measureGridValues.set(key, sentValue);
           input.dataset.dirty = "false";
-          setMeasureGridCellStatus(input, "idle", `POST ${track}:${measure} OK`);
+          setMeasureGridCellStatus(renderedCell, "idle", `POST ${track}:${measure} OK`);
           appendLog(`grid POST ${track}:${measure} OK: "${sentValue}"`);
         }, autoSendDelayMs);
 
+        shellEl.className = "measure-grid-cell-shell";
+        previewEl.className = "measure-grid-cell-preview";
+        previewEl.setAttribute("aria-hidden", "true");
         input.className = "measure-grid-cell";
         input.type = "text";
-        input.value = measureGridValues.get(key) ?? "";
         input.dataset.dirty = "false";
         input.setAttribute("aria-label", `track ${track} measure ${measure}`);
+        setMeasureGridCellValue(renderedCell, measureGridValues.get(key) ?? "");
         setMeasureGridCellHighlight(
-          input,
+          shellEl,
           getMeasureGridCellHighlight(track, measure, measureGridHighlightTargets)
         );
         input.addEventListener("input", () => {
           editVersion += 1;
           measureGridValues.set(key, input.value);
+          syncMeasureGridCellPreview(previewEl, input.value);
+          syncMeasureGridCellExpandedWidth(shellEl, input.value);
           input.dataset.dirty = "true";
           setMeasureGridCellStatus(
-            input,
+            renderedCell,
             "syncing",
             `POST ${track}:${measure} を予約しました`
           );
           syncer.schedule();
         });
+        input.addEventListener("keydown", (event) => {
+          const navigationTarget = getMeasureGridArrowNavigationTarget({
+            key: event.key,
+            track,
+            measure,
+            value: input.value,
+            selectionStart: input.selectionStart,
+            selectionEnd: input.selectionEnd,
+            visibleTracks,
+            visibleMeasures,
+            isComposing: event.isComposing,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+          });
+          if (navigationTarget === null) {
+            return;
+          }
+
+          const nextInput = measureGridInputs.get(
+            getMeasureGridCellKey(navigationTarget.track, navigationTarget.measure)
+          );
+          if (nextInput === undefined) {
+            return;
+          }
+
+          event.preventDefault();
+          focusMeasureGridInput(
+            nextInput,
+            navigationTarget.selectionBehavior,
+            navigationTarget.caretOffset,
+            navigationTarget.caretOffsetOrigin
+          );
+        });
 
         measureGridInputs.set(key, input);
+        measureGridRenderedCells.set(key, renderedCell);
         measureGridSyncers.set(key, syncer);
-        cell.append(input);
+        shellEl.append(previewEl, input);
+        cell.append(shellEl);
         row.append(cell);
       }
 
@@ -405,7 +654,8 @@ export function createMeasureGridController(
     }
 
     const input = measureGridInputs.get(key);
-    if (input === undefined) {
+    const renderedCell = measureGridRenderedCells.get(key);
+    if (input === undefined || renderedCell === undefined) {
       measureGridValues.set(key, mml);
       return;
     }
@@ -419,9 +669,9 @@ export function createMeasureGridController(
     }
 
     measureGridValues.set(key, mml);
-    input.value = mml;
+    setMeasureGridCellValue(renderedCell, mml);
     input.dataset.dirty = "false";
-    setMeasureGridCellStatus(input, "idle", `web側の結果を ${track}:${measure} に反映済み`);
+    setMeasureGridCellStatus(renderedCell, "idle", `web側の結果を ${track}:${measure} に反映済み`);
   }
 
   async function loadFromCmrt(): Promise<void> {
@@ -433,8 +683,9 @@ export function createMeasureGridController(
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
-        if (input !== undefined && shouldShowLoading) {
-          setMeasureGridCellStatus(input, "loading", `GET ${track}:${measure} を読み込み中`);
+        const renderedCell = measureGridRenderedCells.get(getMeasureGridCellKey(track, measure));
+        if (input !== undefined && renderedCell !== undefined && shouldShowLoading) {
+          setMeasureGridCellStatus(renderedCell, "loading", `GET ${track}:${measure} を読み込み中`);
         }
       }
     }
@@ -452,9 +703,11 @@ export function createMeasureGridController(
       lastErrorMessage = errorMessage;
       for (const track of visibleTracks) {
         for (const measure of visibleMeasures) {
-          const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
-          if (input !== undefined) {
-            setMeasureGridCellStatus(input, "error", errorMessage);
+          const renderedCell = measureGridRenderedCells.get(
+            getMeasureGridCellKey(track, measure)
+          );
+          if (renderedCell !== undefined) {
+            setMeasureGridCellStatus(renderedCell, "error", errorMessage);
           }
         }
       }
@@ -471,14 +724,15 @@ export function createMeasureGridController(
       for (const measure of visibleMeasures) {
         const key = getMeasureGridCellKey(track, measure);
         const input = measureGridInputs.get(key);
-        if (input === undefined) {
+        const renderedCell = measureGridRenderedCells.get(key);
+        if (input === undefined || renderedCell === undefined) {
           continue;
         }
 
         const value = getMmlsCellValue(snapshot.tracks, track, measure);
         if (value === null) {
           setMeasureGridCellStatus(
-            input,
+            renderedCell,
             "error",
             `GET ${track}:${measure} は /mmls の範囲外です`
           );
@@ -487,9 +741,9 @@ export function createMeasureGridController(
 
         measureGridValues.set(key, value);
         if (input.dataset.dirty !== "true") {
-          input.value = value;
+          setMeasureGridCellValue(renderedCell, value);
         }
-        setMeasureGridCellStatus(input, "idle", `GET ${track}:${measure} OK`);
+        setMeasureGridCellStatus(renderedCell, "idle", `GET ${track}:${measure} OK`);
       }
     }
   }
