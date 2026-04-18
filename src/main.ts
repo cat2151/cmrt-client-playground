@@ -194,9 +194,11 @@ function applyMeasureGridConfigFromControls(): boolean {
 }
 
 let isReloadingMeasureGrid = false;
+let shouldReloadMeasureGridAgain = false;
 
 async function reloadMeasureGridFromCmrt(): Promise<void> {
   if (isReloadingMeasureGrid) {
+    shouldReloadMeasureGridAgain = true;
     return;
   }
 
@@ -205,6 +207,10 @@ async function reloadMeasureGridFromCmrt(): Promise<void> {
     await measureGridController.loadFromCmrt();
   } finally {
     isReloadingMeasureGrid = false;
+    if (shouldReloadMeasureGridAgain) {
+      shouldReloadMeasureGridAgain = false;
+      void reloadMeasureGridFromCmrt();
+    }
   }
 }
 
