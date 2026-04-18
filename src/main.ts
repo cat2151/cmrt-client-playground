@@ -265,7 +265,10 @@ const debouncedSendMml = createDebouncedCallback(() => {
 }, AUTO_SEND_DELAY_MS);
 
 function syncTopLevelAutoSend(): void {
-  syncDebouncedAutoSend(inputEl.value, debouncedSendMml);
+  const canSendToChordTargets =
+    parsePositiveInteger(trackEl.value) !== null &&
+    parsePositiveInteger(measureEl.value) !== null;
+  syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
 }
 
 const hasStoredChordTrack = loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);

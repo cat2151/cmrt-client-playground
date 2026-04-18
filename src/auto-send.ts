@@ -5,9 +5,10 @@ export interface DebouncedAutoSend {
 
 export function syncDebouncedAutoSend(
   value: string,
-  debouncedAutoSend: DebouncedAutoSend
+  debouncedAutoSend: DebouncedAutoSend,
+  shouldSchedule = true
 ): void {
-  if (!value.trim()) {
+  if (!value.trim() || !shouldSchedule) {
     debouncedAutoSend.cancel();
     return;
   }
