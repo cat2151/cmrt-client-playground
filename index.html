@@ -25,16 +25,19 @@
       <div id="app-shell" inert aria-busy="true">
         <div class="app-toolbar">
           <div class="playback-controls" role="group" aria-label="playback controls">
-            <button
-              id="play-start"
-              class="transport-button transport-button--play"
-              type="button"
-              aria-label="play"
-            >
-              <svg class="transport-button__icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M8 6.5v11c0 .78.86 1.25 1.52.83l8-5.5a1 1 0 0 0 0-1.66l-8-5.5A1 1 0 0 0 8 6.5Z" />
-              </svg>
-            </button>
+            <span class="play-button-anchor">
+              <button
+                id="play-start"
+                class="transport-button transport-button--play"
+                type="button"
+                aria-label="play"
+              >
+                <svg class="transport-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 6.5v11c0 .78.86 1.25 1.52.83l8-5.5a1 1 0 0 0 0-1.66l-8-5.5A1 1 0 0 0 8 6.5Z" />
+                </svg>
+              </button>
+              <span id="chord-analysis-error-balloon" class="error-balloon" role="alert" hidden></span>
+            </span>
             <button
               id="play-stop"
               class="transport-button transport-button--stop"
@@ -48,10 +51,36 @@
           </div>
           <select
             id="chord-history"
-            class="chord-history-select"
+            class="chord-toolbar-select chord-history-select"
             aria-label="chord history"
           >
             <option value="">chord history empty</option>
+          </select>
+          <select
+            id="chord-template-key"
+            class="chord-toolbar-select chord-template-key-select"
+            aria-label="template key"
+          >
+            <option value="C">Key=C</option>
+            <option value="C#">Key=C#</option>
+            <option value="D">Key=D</option>
+            <option value="D#">Key=D#</option>
+            <option value="E">Key=E</option>
+            <option value="F">Key=F</option>
+            <option value="F#">Key=F#</option>
+            <option value="G">Key=G</option>
+            <option value="G#">Key=G#</option>
+            <option value="A">Key=A</option>
+            <option value="A#">Key=A#</option>
+            <option value="B">Key=B</option>
+          </select>
+          <select
+            id="chord-template"
+            class="chord-toolbar-select chord-template-select"
+            aria-label="chord template"
+            disabled
+          >
+            <option value="">template loading...</option>
           </select>
         </div>
         <textarea id="input" placeholder="C Am G7" aria-label="コード入力"></textarea>

@@ -25,6 +25,7 @@ export interface SendMmlOptions {
   bassTrackValue: string;
   client: SendMmlClient;
   appendLog(message: string): void;
+  onChordAnalysisError?(message: string): void;
   reflectValue(track: number, measure: number, mml: string): void;
 }
 
@@ -86,7 +87,9 @@ export async function sendMml(options: SendMmlOptions): Promise<void> {
 
   const mml = chordToMml(input);
   if (mml === null) {
-    options.appendLog(`ERROR: コードを認識できませんでした: "${input}"`);
+    const message = `コードを認識できませんでした: "${input}"`;
+    options.appendLog(`ERROR: ${message}`);
+    options.onChordAnalysisError?.(message);
     return;
   }
 

@@ -60,4 +60,31 @@ describe("sendMml", () => {
       "ERROR (chord measure 5): http request failed with status 500: boom"
     );
   });
+
+  it("notifies chord analysis errors before posting", async () => {
+    const logs: string[] = [];
+    const analysisErrors: string[] = [];
+    const client: SendMmlClient = {
+      getBaseUrl: () => "http://127.0.0.1:62151",
+      postMml: async () => {
+        throw new Error("postMml should not be called after chord analysis failure");
+      },
+    };
+
+    await sendMml({
+      input: "ZZZZZ",
+      chordTrack: 2,
+      chordMeasure: 5,
+      bassTrackValue: "9",
+      client,
+      appendLog: (message) => logs.push(message),
+      onChordAnalysisError: (message) => analysisErrors.push(message),
+      reflectValue: () => {
+        throw new Error("reflectValue should not be called after chord analysis failure");
+      },
+    });
+
+    expect(logs).toEqual(['ERROR: コードを認識できませんでした: "ZZZZZ"']);
+    expect(analysisErrors).toEqual(['コードを認識できませんでした: "ZZZZZ"']);
+  });
 });

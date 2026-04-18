@@ -19,6 +19,12 @@ import {
   parseChordHistoryStorage,
   serializeChordHistory,
 } from "./chord-history.ts";
+import {
+  formatChordTemplateInput,
+  formatChordTemplateOptionLabel,
+  parseChordTemplates,
+  type ChordTemplate,
+} from "./chord-templates.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import {
   createMeasureGridController,
@@ -53,7 +59,14 @@ const startupOverlayDetailEl = document.getElementById(
 ) as HTMLPreElement;
 const playStartButtonEl = document.getElementById("play-start") as HTMLButtonElement;
 const playStopButtonEl = document.getElementById("play-stop") as HTMLButtonElement;
+const chordAnalysisErrorBalloonEl = document.getElementById(
+  "chord-analysis-error-balloon"
+) as HTMLSpanElement;
 const chordHistorySelectEl = document.getElementById("chord-history") as HTMLSelectElement;
+const chordTemplateKeySelectEl = document.getElementById(
+  "chord-template-key"
+) as HTMLSelectElement;
+const chordTemplateSelectEl = document.getElementById("chord-template") as HTMLSelectElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const localStorageExportButtonEl = document.getElementById(
   "local-storage-export"
@@ -79,6 +92,8 @@ const CHORD_HISTORY_STORAGE_KEY = "cmrt-client-playground.chord.history";
 const CHORD_TRACK_STORAGE_KEY = "cmrt-client-playground.chord.track";
 const CHORD_MEASURE_STORAGE_KEY = "cmrt-client-playground.chord.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
+const CHORD_TEMPLATE_URL =
+  "https://raw.githubusercontent.com/cat2151/cat-music-patterns/main/chord-progressions.json";
 const APP_STORAGE_EXPORT_FILENAME = "cmrt-client-playground-local-storage.json";
 const APP_STORAGE_KEYS = [
   INPUT_STORAGE_KEY,
@@ -95,6 +110,10 @@ const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
 const STARTUP_CONNECTIVITY_RETRY_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
+const CHORD_HISTORY_SELECT_MIN_CH = 12;
+const CHORD_HISTORY_SELECT_MAX_CH = 24;
+const CHORD_ANALYSIS_ERROR_BALLOON_MS = 5000;
+const CHORD_ANALYSIS_ERROR_BALLOON_VIEWPORT_MARGIN_PX = 8;
 const reportedLocalStorageErrors = new Set<string>();
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
@@ -105,6 +124,9 @@ const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
 };
 const dawClient = DawClient.localDefault();
 let chordHistory: string[] = [];
+let chordTemplates: ChordTemplate[] = [];
+let chordTemplateLoadState: "loading" | "ready" | "error" = "loading";
+let selectedChordTemplateDegrees: string | null = null;
 
 function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
@@ -213,6 +235,23 @@ function formatChordHistoryOptionLabel(value: string): string {
   return value.replace(/\s+/g, " ");
 }
 
+function syncChordHistorySelectWidth(): void {
+  const longestLabelLength =
+    chordHistory.length === 0
+      ? "chord history".length
+      : Math.max(
+          ...chordHistory.map((entry) => formatChordHistoryOptionLabel(entry).length)
+        );
+  const widthCh = Math.min(
+    CHORD_HISTORY_SELECT_MAX_CH,
+    Math.max(CHORD_HISTORY_SELECT_MIN_CH, longestLabelLength)
+  );
+  chordHistorySelectEl.style.setProperty(
+    "--chord-history-select-label-ch",
+    String(widthCh)
+  );
+}
+
 function renderChordHistorySelect(): void {
   const currentInput = inputEl.value.trim();
   chordHistorySelectEl.replaceChildren();
@@ -239,6 +278,124 @@ function renderChordHistorySelect(): void {
 
   placeholderEl.selected = !selectedHistoryEntry;
   chordHistorySelectEl.disabled = chordHistory.length === 0;
+  syncChordHistorySelectWidth();
+}
+
+function renderChordTemplateSelect(): void {
+  chordTemplateSelectEl.replaceChildren();
+
+  const placeholderEl = document.createElement("option");
+  placeholderEl.value = "";
+  placeholderEl.textContent =
+    chordTemplateLoadState === "loading"
+      ? "template loading..."
+      : chordTemplateLoadState === "error"
+        ? "template load failed"
+        : chordTemplates.length === 0
+          ? "template empty"
+          : "template";
+  placeholderEl.disabled = true;
+  chordTemplateSelectEl.append(placeholderEl);
+
+  let selectedTemplate = false;
+  if (chordTemplateLoadState === "ready") {
+    for (const template of chordTemplates) {
+      const optionEl = document.createElement("option");
+      optionEl.value = template.degrees;
+      optionEl.textContent = formatChordTemplateOptionLabel(template);
+      optionEl.title = optionEl.textContent;
+      if (template.degrees === selectedChordTemplateDegrees) {
+        optionEl.selected = true;
+        selectedTemplate = true;
+      }
+      chordTemplateSelectEl.append(optionEl);
+    }
+  }
+
+  placeholderEl.selected = !selectedTemplate;
+  chordTemplateSelectEl.disabled =
+    chordTemplateLoadState !== "ready" || chordTemplates.length === 0;
+}
+
+function getSelectedChordTemplateKey(): string {
+  return chordTemplateKeySelectEl.value || "C";
+}
+
+function getSelectedChordTemplateInput(): string | null {
+  if (selectedChordTemplateDegrees === null) {
+    return null;
+  }
+
+  return formatChordTemplateInput(
+    selectedChordTemplateDegrees,
+    getSelectedChordTemplateKey()
+  );
+}
+
+function isCurrentInputFromSelectedTemplate(): boolean {
+  const templateInput = getSelectedChordTemplateInput();
+  return templateInput !== null && inputEl.value === templateInput;
+}
+
+function applySelectedChordTemplateToInput(): void {
+  const templateInput = getSelectedChordTemplateInput();
+  if (templateInput === null) {
+    return;
+  }
+
+  inputEl.value = templateInput;
+  syncChordInputStateAfterChange();
+}
+
+async function loadChordTemplates(): Promise<void> {
+  chordTemplateLoadState = "loading";
+  renderChordTemplateSelect();
+
+  let response: Response;
+  try {
+    response = await fetch(CHORD_TEMPLATE_URL, { cache: "no-store" });
+  } catch (error: unknown) {
+    chordTemplates = [];
+    chordTemplateLoadState = "error";
+    renderChordTemplateSelect();
+    appendLog(`ERROR: template JSON の fetch に失敗しました: ${String(error)}`);
+    return;
+  }
+
+  if (!response.ok) {
+    chordTemplates = [];
+    chordTemplateLoadState = "error";
+    renderChordTemplateSelect();
+    appendLog(
+      `ERROR: template JSON の fetch に失敗しました: HTTP ${response.status} ${response.statusText}`
+    );
+    return;
+  }
+
+  let raw: unknown;
+  try {
+    raw = await response.json();
+  } catch (error: unknown) {
+    chordTemplates = [];
+    chordTemplateLoadState = "error";
+    renderChordTemplateSelect();
+    appendLog(`ERROR: template JSON を JSON として読み取れませんでした: ${String(error)}`);
+    return;
+  }
+
+  const parsed = parseChordTemplates(raw);
+  if (!parsed.ok) {
+    chordTemplates = [];
+    chordTemplateLoadState = "error";
+    renderChordTemplateSelect();
+    appendLog(`ERROR: template JSON の形式が不正です: ${parsed.message}`);
+    return;
+  }
+
+  chordTemplates = parsed.templates;
+  chordTemplateLoadState = "ready";
+  renderChordTemplateSelect();
+  appendLog(`template JSON を読み込みました: ${chordTemplates.length} 件`);
 }
 
 function saveChordHistory(): void {
@@ -289,6 +446,7 @@ function restoreTopLevelStateFromStorage(): {
   hasStoredChordTrack: boolean;
   hasStoredBassTrack: boolean;
 } {
+  selectedChordTemplateDegrees = null;
   loadStoredText(INPUT_STORAGE_KEY, "", inputEl);
   loadStoredChordHistory();
   const hasStoredChordTrack = loadStoredTarget(CHORD_TRACK_STORAGE_KEY, DEFAULT_TRACK, chordTrackEl);
@@ -500,11 +658,64 @@ let isCheckingStartupConnectivity = false;
 let isCmrtReady = false;
 let appliedAbRepeatRange: StartupAbRepeatRange | null = null;
 let isPlaying = false;
+let chordAnalysisErrorBalloonTimer: number | null = null;
 
 function syncPlaybackButtonState(): void {
   const buttonState = getPlaybackButtonState(isPlaying);
   playStartButtonEl.disabled = buttonState.playDisabled;
   playStopButtonEl.disabled = buttonState.stopDisabled;
+}
+
+function hideChordAnalysisErrorBalloon(): void {
+  if (chordAnalysisErrorBalloonTimer !== null) {
+    window.clearTimeout(chordAnalysisErrorBalloonTimer);
+    chordAnalysisErrorBalloonTimer = null;
+  }
+
+  chordAnalysisErrorBalloonEl.hidden = true;
+  chordAnalysisErrorBalloonEl.textContent = "";
+  chordAnalysisErrorBalloonEl.style.removeProperty(
+    "--error-balloon-viewport-offset-y"
+  );
+}
+
+function keepChordAnalysisErrorBalloonInsideViewport(): void {
+  chordAnalysisErrorBalloonEl.style.setProperty(
+    "--error-balloon-viewport-offset-y",
+    "0px"
+  );
+  const rect = chordAnalysisErrorBalloonEl.getBoundingClientRect();
+  const offsetY = Math.max(
+    0,
+    CHORD_ANALYSIS_ERROR_BALLOON_VIEWPORT_MARGIN_PX - rect.top
+  );
+  chordAnalysisErrorBalloonEl.style.setProperty(
+    "--error-balloon-viewport-offset-y",
+    `${offsetY}px`
+  );
+}
+
+function showChordAnalysisErrorBalloon(message: string): void {
+  if (chordAnalysisErrorBalloonTimer !== null) {
+    window.clearTimeout(chordAnalysisErrorBalloonTimer);
+  }
+
+  chordAnalysisErrorBalloonEl.textContent = `chord分析エラー: ${message}`;
+  chordAnalysisErrorBalloonEl.hidden = false;
+  keepChordAnalysisErrorBalloonInsideViewport();
+  window.requestAnimationFrame(() => {
+    if (!chordAnalysisErrorBalloonEl.hidden) {
+      keepChordAnalysisErrorBalloonInsideViewport();
+    }
+  });
+  chordAnalysisErrorBalloonTimer = window.setTimeout(() => {
+    chordAnalysisErrorBalloonTimer = null;
+    chordAnalysisErrorBalloonEl.hidden = true;
+    chordAnalysisErrorBalloonEl.textContent = "";
+    chordAnalysisErrorBalloonEl.style.removeProperty(
+      "--error-balloon-viewport-offset-y"
+    );
+  }, CHORD_ANALYSIS_ERROR_BALLOON_MS);
 }
 
 function getCurrentAbRepeatRange(): StartupAbRepeatRange | null {
@@ -717,7 +928,9 @@ async function sendCurrentMml(): Promise<void> {
   if (chordTrack === null || chordMeasure === null) {
     return;
   }
-  rememberChordHistoryEntry(inputEl.value);
+  if (!isCurrentInputFromSelectedTemplate()) {
+    rememberChordHistoryEntry(inputEl.value);
+  }
   await sendMml({
     input: inputEl.value,
     chordTrack,
@@ -725,6 +938,7 @@ async function sendCurrentMml(): Promise<void> {
     bassTrackValue: bassTrackEl.value,
     client: dawClient,
     appendLog,
+    onChordAnalysisError: showChordAnalysisErrorBalloon,
     reflectValue: (track, measure, mml) =>
       measureGridController.reflectValue(track, measure, mml),
   });
@@ -781,12 +995,15 @@ function syncTopLevelAbRepeat(): void {
 function syncChordInputStateAfterChange(): void {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
   renderChordHistorySelect();
+  renderChordTemplateSelect();
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
   syncTopLevelAbRepeat();
 }
 
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
+renderChordTemplateSelect();
+void loadChordTemplates();
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
@@ -802,6 +1019,7 @@ window.addEventListener("beforeunload", () => {
   cancelQueuedMeasureGridReload();
   debouncedSendMml.cancel();
   debouncedSyncAbRepeat.cancel();
+  hideChordAnalysisErrorBalloon();
 });
 
 chordTrackEl.addEventListener("input", () => {
@@ -821,6 +1039,7 @@ bassTrackEl.addEventListener("input", () => {
   syncTopLevelAutoSend();
 });
 inputEl.addEventListener("input", () => {
+  selectedChordTemplateDegrees = null;
   syncChordInputStateAfterChange();
 });
 chordHistorySelectEl.addEventListener("change", () => {
@@ -829,9 +1048,23 @@ chordHistorySelectEl.addEventListener("change", () => {
     return;
   }
 
+  selectedChordTemplateDegrees = null;
   inputEl.value = selectedChord;
   rememberChordHistoryEntry(inputEl.value);
   syncChordInputStateAfterChange();
+  inputEl.focus();
+});
+chordTemplateKeySelectEl.addEventListener("change", () => {
+  applySelectedChordTemplateToInput();
+});
+chordTemplateSelectEl.addEventListener("change", () => {
+  const selectedTemplate = chordTemplateSelectEl.value;
+  if (selectedTemplate === "") {
+    return;
+  }
+
+  selectedChordTemplateDegrees = selectedTemplate;
+  applySelectedChordTemplateToInput();
   inputEl.focus();
 });
 playStartButtonEl.addEventListener("click", async () => {

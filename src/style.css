@@ -91,15 +91,17 @@ textarea {
 .app-toolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   justify-content: flex-start;
   margin-bottom: 0.75rem;
+  min-width: 0;
 }
 
 .playback-controls {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 0.5rem;
   padding: 0.55rem 0.7rem;
   border: 1px solid #0f172a;
@@ -108,6 +110,49 @@ textarea {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.08),
     0 12px 24px rgb(15 23 42 / 0.12);
+}
+
+.play-button-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.error-balloon {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.65rem);
+  z-index: 10;
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 2rem));
+  max-height: min(10rem, calc(100vh - 1rem));
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #b91c1c;
+  border-radius: 0.5rem;
+  background: #fee2e2;
+  color: #7f1d1d;
+  box-shadow: 0 8px 20px rgb(127 29 29 / 0.2);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  transform: translate(-50%, var(--error-balloon-viewport-offset-y, 0px));
+}
+
+.error-balloon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-right: 1px solid #b91c1c;
+  border-bottom: 1px solid #b91c1c;
+  background: #fee2e2;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.error-balloon[hidden] {
+  display: none;
 }
 
 .editor-toolbar {
@@ -234,9 +279,10 @@ button.transport-button:disabled:active {
   filter: drop-shadow(0 0 0.35rem rgb(74 222 128 / 0.2));
 }
 
-.chord-history-select {
-  width: min(24rem, 100%);
+.chord-toolbar-select {
+  flex: 0 1 auto;
   min-height: 2.5rem;
+  min-width: 0;
   padding: 0.45rem 0.65rem;
   box-sizing: border-box;
   border: 1px solid #cbd5e1;
@@ -245,7 +291,22 @@ button.transport-button:disabled:active {
   color: #1f2937;
 }
 
-.chord-history-select:disabled {
+.chord-history-select {
+  width: calc(var(--chord-history-select-label-ch, 12) * 1ch + 2.5rem);
+  max-width: 15rem;
+}
+
+.chord-template-key-select {
+  flex: 0 0 auto;
+  width: 5.4rem;
+}
+
+.chord-template-select {
+  flex: 1 1 0;
+  width: auto;
+}
+
+.chord-toolbar-select:disabled {
   background: #f8fafc;
   color: #64748b;
   cursor: default;
@@ -467,7 +528,8 @@ button.transport-button:disabled:active {
   padding: 0.75rem;
   background: #f4f4f4;
   border: 1px solid #ccc;
-  min-height: 6rem;
+  height: 12rem;
+  overflow: auto;
   font-family: monospace;
   font-size: 0.9rem;
   white-space: pre-wrap;
@@ -534,6 +596,18 @@ a {
     fill: #a6e22e;
   }
 
+  .error-balloon {
+    color: #fee2e2;
+    background: #7f1d1d;
+    border-color: #f87171;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.35);
+  }
+
+  .error-balloon::after {
+    background: #7f1d1d;
+    border-color: #f87171;
+  }
+
   .measure-grid-settings summary,
   .log-panel summary,
   .measure-grid-settings__panel {
@@ -547,18 +621,18 @@ a {
     background: #111827;
   }
 
-  .chord-history-select {
+  .chord-toolbar-select {
     color: #e5e7eb;
     background: #1f2937;
     border-color: #4b5563;
   }
 
-  .chord-history-select:disabled {
+  .chord-toolbar-select:disabled {
     color: #9ca3af;
     background: #111827;
   }
 
-  .chord-history-select option {
+  .chord-toolbar-select option {
     color: #e5e7eb;
     background: #1f2937;
   }
