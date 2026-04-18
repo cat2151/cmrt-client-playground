@@ -187,66 +187,62 @@ function getTokenColor(kind: ChordProgressionTokenKind): string {
   }
 }
 
-function appendToken(fragment: DocumentFragment, token: ChordProgressionToken): void {
-  const parts = token.text.split("\n");
-  parts.forEach((part, index) => {
-    if (part !== "") {
-      const span = document.createElement("span");
-      span.className = "chord-input-editor__token";
-      span.style.color = getTokenColor(token.kind);
-      span.textContent = part;
-      fragment.append(span);
-    }
-    if (index < parts.length - 1) {
-      fragment.append(document.createElement("br"));
-    }
-  });
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+export function renderChordProgressionHtml(value: string): string {
+  if (value === "") {
+    return "";
+  }
+
+  const rendered = tokenizeChordProgression(value)
+    .map(
+      (token) =>
+        `<span class="chord-input-editor__token" style="color:${getTokenColor(token.kind)}">${escapeHtml(token.text)}</span>`
+    )
+    .join("");
+  return value.endsWith("\n") ? `${rendered}&#8203;` : rendered;
 }
 
 function renderChordProgression(element: HTMLElement, value: string): void {
-  element.replaceChildren();
-  if (value === "") {
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  for (const token of tokenizeChordProgression(value)) {
-    appendToken(fragment, token);
-  }
-  element.append(fragment);
-}
-
-function readEditorValue(element: HTMLElement): string {
-  return normalizeLineEndings(element.innerText);
-}
-
-function moveCaretToEnd(element: HTMLElement): void {
-  const selection = window.getSelection();
-  if (selection === null) {
-    return;
-  }
-
-  const range = document.createRange();
-  range.selectNodeContents(element);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
+  element.innerHTML = renderChordProgressionHtml(value);
 }
 
 export function createChordProgressionEditor(options: {
   element: HTMLElement;
 }): ChordProgressionEditor {
   const { element } = options;
-  let currentValue = normalizeLineEndings(element.innerText);
+  const overlayNode = element.querySelector(".chord-input-editor__overlay");
+  const textareaNode = element.querySelector(".chord-input-editor__textarea");
+  if (!(overlayNode instanceof HTMLDivElement) || !(textareaNode instanceof HTMLTextAreaElement)) {
+    throw new Error("chord progression editor requires overlay and textarea elements");
+  }
+  const overlayEl: HTMLDivElement = overlayNode;
+  const textareaEl: HTMLTextAreaElement = textareaNode;
 
-  renderChordProgression(element, currentValue);
+  function syncOverlayScroll(): void {
+    overlayEl.scrollTop = textareaEl.scrollTop;
+    overlayEl.scrollLeft = textareaEl.scrollLeft;
+  }
 
-  element.addEventListener("input", () => {
-    currentValue = readEditorValue(element);
-    renderChordProgression(element, currentValue);
-    element.focus();
-    moveCaretToEnd(element);
+  let currentValue = normalizeLineEndings(textareaEl.value);
+
+  function renderCurrentValue(): void {
+    renderChordProgression(overlayEl, currentValue);
+    syncOverlayScroll();
+  }
+
+  renderCurrentValue();
+
+  textareaEl.addEventListener("input", () => {
+    currentValue = normalizeLineEndings(textareaEl.value);
+    renderCurrentValue();
   });
+  textareaEl.addEventListener("scroll", syncOverlayScroll, { passive: true });
 
   return {
     get value(): string {
@@ -254,18 +250,18 @@ export function createChordProgressionEditor(options: {
     },
     set value(nextValue: string) {
       currentValue = normalizeLineEndings(nextValue);
-      renderChordProgression(element, currentValue);
+      textareaEl.value = currentValue;
+      renderCurrentValue();
     },
     focus(): void {
-      element.focus();
-      moveCaretToEnd(element);
+      textareaEl.focus();
     },
     addEventListener(
       type: "input",
       listener: (event: Event) => void,
       options?: boolean | AddEventListenerOptions
     ): void {
-      element.addEventListener(type, listener, options);
+      textareaEl.addEventListener(type, listener, options);
     },
   };
 }

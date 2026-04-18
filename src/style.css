@@ -104,6 +104,14 @@ textarea {
 }
 
 .chord-input-editor__input {
+  position: relative;
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+}
+
+.chord-input-editor__overlay,
+.chord-input-editor__textarea {
   width: 100%;
   min-height: 5rem;
   box-sizing: border-box;
@@ -112,29 +120,42 @@ textarea {
   font-size: 0.95rem;
   line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.chord-input-editor__input {
+.chord-input-editor__overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #f8f8f2;
+}
+
+.chord-input-editor__textarea {
   display: block;
   margin: 0;
-  color: #f8f8f2;
+  resize: vertical;
+  color: transparent;
   caret-color: #f8f8f2;
   background: transparent;
-  overflow-wrap: anywhere;
   border: none;
   border-radius: 0.5rem;
   box-shadow: none;
+  -webkit-text-fill-color: transparent;
 }
 
-.chord-input-editor__input:focus {
+.chord-input-editor__textarea:focus {
   outline: none;
 }
 
-.chord-input-editor__input:empty::before {
-  content: attr(data-placeholder);
+.chord-input-editor__textarea::placeholder {
   color: #a59f85;
-  pointer-events: none;
+  -webkit-text-fill-color: #a59f85;
+}
+
+.chord-input-editor__textarea::selection {
+  background: rgb(73 72 62 / 0.8);
 }
 
 .chord-input-editor__token {
@@ -687,13 +708,18 @@ a {
   }
 
   .chord-input-editor__input {
+    background: transparent;
+  }
+
+  .chord-input-editor__textarea {
     border: none;
     background: transparent;
     box-shadow: none;
   }
 
-  .chord-input-editor__input:empty::before {
+  .chord-input-editor__textarea::placeholder {
     color: #a59f85;
+    -webkit-text-fill-color: #a59f85;
   }
 
   button.transport-button {

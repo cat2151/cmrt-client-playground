@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { tokenizeChordProgression } from "./chord-progression-highlight.ts";
+import {
+  renderChordProgressionHtml,
+  tokenizeChordProgression,
+} from "./chord-progression-highlight.ts";
 
 describe("tokenizeChordProgression", () => {
   it("tokenizes key, annotation, roman numerals, suffixes, inversions, octaves, and separators", () => {
@@ -81,5 +84,27 @@ describe("tokenizeChordProgression", () => {
       { text: "r", kind: "annotation" },
       { text: "d", kind: "annotation" },
     ]);
+  });
+});
+
+describe("renderChordProgressionHtml", () => {
+  it("renders highlighted token spans for overlay display", () => {
+    expect(renderChordProgressionHtml("Key=C\nIM7-bVII")).toBe(
+      '<span class="chord-input-editor__token" style="color:#a59f85">Key=</span>' +
+        '<span class="chord-input-editor__token" style="color:#e6db74">C</span>' +
+        '<span class="chord-input-editor__token" style="color:#a59f85">\n</span>' +
+        '<span class="chord-input-editor__token" style="color:#f8f8f2">I</span>' +
+        '<span class="chord-input-editor__token" style="color:#fd971f">M7</span>' +
+        '<span class="chord-input-editor__token" style="color:#a59f85">-</span>' +
+        '<span class="chord-input-editor__token" style="color:#f8f8f2">bVII</span>'
+    );
+  });
+
+  it("escapes html and preserves a trailing newline for the overlay", () => {
+    expect(renderChordProgressionHtml("I<sus>\n")).toBe(
+      '<span class="chord-input-editor__token" style="color:#f8f8f2">I</span>' +
+        '<span class="chord-input-editor__token" style="color:#fd971f">&lt;sus&gt;</span>' +
+        '<span class="chord-input-editor__token" style="color:#a59f85">\n</span>&#8203;'
+    );
   });
 });
