@@ -37,7 +37,6 @@ const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInpu
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
 const gridMeasureCountEl = document.getElementById("grid-measure-count") as HTMLInputElement;
-const gridReloadBtn = document.getElementById("grid-reload") as HTMLButtonElement;
 const measureGridHeadEl = document.getElementById("measure-grid-head") as HTMLTableSectionElement;
 const measureGridBodyEl = document.getElementById("measure-grid-body") as HTMLTableSectionElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
@@ -49,7 +48,7 @@ const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
 const AUTO_TARGET_TRACK_SCAN_END = 16;
-const GRID_GET_CONCURRENCY = 8;
+const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
 
@@ -159,7 +158,6 @@ const measureGridController = createMeasureGridController({
   dawClient,
   appendLog,
   autoSendDelayMs: AUTO_SEND_DELAY_MS,
-  gridGetConcurrency: GRID_GET_CONCURRENCY,
   maxAutoExpandedTrackCount: MAX_AUTO_EXPANDED_TRACK_COUNT,
   maxAutoExpandedMeasureCount: MAX_AUTO_EXPANDED_MEASURE_COUNT,
   initialConfig: DEFAULT_MEASURE_GRID_CONFIG,
@@ -181,6 +179,60 @@ function syncMeasureGridHighlightTargets(): void {
     chordTarget,
     bassTarget,
   });
+}
+
+function applyMeasureGridConfigFromControls(): boolean {
+  const nextConfig = measureGridController.readConfigFromControls();
+  if (nextConfig === null) {
+    return false;
+  }
+
+  measureGridController.applyConfig(nextConfig);
+  return true;
+}
+
+let isReloadingMeasureGrid = false;
+let shouldReloadMeasureGridAgain = false;
+let measureGridQueuedReloadTimer: number | null = null;
+let lastMeasureGridReloadStartedAt = 0;
+
+function cancelQueuedMeasureGridReload(): void {
+  if (measureGridQueuedReloadTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(measureGridQueuedReloadTimer);
+  measureGridQueuedReloadTimer = null;
+}
+
+function queueMeasureGridReload(): void {
+  cancelQueuedMeasureGridReload();
+  const elapsedMs = Date.now() - lastMeasureGridReloadStartedAt;
+  const delayMs = Math.max(0, GRID_AUTO_FETCH_INTERVAL_MS - elapsedMs);
+  measureGridQueuedReloadTimer = window.setTimeout(() => {
+    measureGridQueuedReloadTimer = null;
+    void reloadMeasureGridFromCmrt();
+  }, delayMs);
+}
+
+async function reloadMeasureGridFromCmrt(): Promise<void> {
+  if (isReloadingMeasureGrid) {
+    shouldReloadMeasureGridAgain = true;
+    return;
+  }
+
+  cancelQueuedMeasureGridReload();
+  isReloadingMeasureGrid = true;
+  lastMeasureGridReloadStartedAt = Date.now();
+  try {
+    await measureGridController.loadFromCmrt();
+  } finally {
+    isReloadingMeasureGrid = false;
+    if (shouldReloadMeasureGridAgain) {
+      shouldReloadMeasureGridAgain = false;
+      queueMeasureGridReload();
+    }
+  }
 }
 
 async function autoSelectTracksFromCmrt(options: {
@@ -420,7 +472,14 @@ void autoSelectTracksFromCmrt({
   shouldSelectChordTrack: !hasStoredChordTrack,
   shouldSelectBassTrack: !hasStoredBassTrack,
 });
-void measureGridController.loadFromCmrt();
+void reloadMeasureGridFromCmrt();
+const measureGridAutoFetchTimer = window.setInterval(() => {
+  void reloadMeasureGridFromCmrt();
+}, GRID_AUTO_FETCH_INTERVAL_MS);
+window.addEventListener("beforeunload", () => {
+  window.clearInterval(measureGridAutoFetchTimer);
+  cancelQueuedMeasureGridReload();
+});
 
 trackEl.addEventListener("input", () => {
   saveTarget(TRACK_STORAGE_KEY, trackEl);
@@ -450,12 +509,17 @@ sendBtn.addEventListener("click", () => {
   debouncedSendMml.cancel();
   void sendMml();
 });
-gridReloadBtn.addEventListener("click", () => {
-  const nextConfig = measureGridController.readConfigFromControls();
-  if (nextConfig === null) {
-    return;
-  }
+for (const element of [
+  gridTrackStartEl,
+  gridTrackCountEl,
+  gridMeasureStartEl,
+  gridMeasureCountEl,
+]) {
+  element.addEventListener("change", () => {
+    if (!applyMeasureGridConfigFromControls()) {
+      return;
+    }
 
-  measureGridController.applyConfig(nextConfig);
-  void measureGridController.loadFromCmrt();
-});
+    void reloadMeasureGridFromCmrt();
+  });
+}

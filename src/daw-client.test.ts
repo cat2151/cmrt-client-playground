@@ -93,6 +93,63 @@ describe("DawClient.getMml", () => {
   });
 });
 
+describe("DawClient.getMmls", () => {
+  it("requests /mmls and returns tracks with the response etag", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ ETag: '"etag-1"' }),
+      json: async () => ({
+        tracks: [["t120", ""], ["@1", "l8cde"]],
+      }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMmls();
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/mmls`, {
+      headers: undefined,
+    });
+    expect(result).toEqual({
+      etag: '"etag-1"',
+      tracks: [["t120", ""], ["@1", "l8cde"]],
+    });
+  });
+
+  it("sends If-None-Match and returns null for 304 responses", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 304,
+      headers: new Headers({ ETag: '"etag-1"' }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMmls('"etag-1"');
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/mmls`, {
+      headers: { "If-None-Match": '"etag-1"' },
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rejects missing etag headers", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ tracks: [] }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.getMmls();
+
+    expect(result).toEqual({
+      kind: "invalidResponse",
+      message: "missing ETag header",
+    });
+  });
+});
+
 describe("DawClient.getMeasureInfo", () => {
   it("extracts an optional snake_case filter name from init meas responses", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({

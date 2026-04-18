@@ -1,4 +1,4 @@
-import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
+import { DawClient, dawClientErrorMessage, type GetMmlsResponse } from "./daw-client.ts";
 import { createDebouncedCallback } from "./debounce.ts";
 import {
   expandMeasureGridConfigToInclude,
@@ -39,7 +39,6 @@ interface CreateMeasureGridControllerOptions {
   dawClient: DawClient;
   appendLog: (message: string) => void;
   autoSendDelayMs: number;
-  gridGetConcurrency: number;
   maxAutoExpandedTrackCount: number;
   maxAutoExpandedMeasureCount: number;
   initialConfig: MeasureGridConfig;
@@ -134,6 +133,24 @@ export function isStaleMeasureGridPostSync(
   );
 }
 
+export function getMmlsCellValue(
+  snapshot: GetMmlsResponse["tracks"],
+  track: number,
+  measure: number
+): string | null {
+  if (!Number.isInteger(track) || track < 0 || !Number.isInteger(measure) || measure < 0) {
+    return null;
+  }
+
+  const trackValues = snapshot[track];
+  if (trackValues === undefined) {
+    return null;
+  }
+
+  const value = trackValues[measure];
+  return typeof value === "string" ? value : null;
+}
+
 export function createMeasureGridController(
   options: CreateMeasureGridControllerOptions
 ): {
@@ -150,7 +167,6 @@ export function createMeasureGridController(
     dawClient,
     appendLog,
     autoSendDelayMs,
-    gridGetConcurrency,
     maxAutoExpandedTrackCount,
     maxAutoExpandedMeasureCount,
     initialConfig,
@@ -162,6 +178,9 @@ export function createMeasureGridController(
     ReturnType<typeof createDebouncedCallback>
   >();
   let measureGridConfig = { ...initialConfig };
+  let lastFetchedEtag: string | null = null;
+  let lastErrorMessage: string | null = null;
+  let loadVersion = 0;
   let measureGridHighlightTargets: MeasureGridHighlightTargets = {
     chordTarget: null,
     bassTarget: null,
@@ -320,6 +339,9 @@ export function createMeasureGridController(
 
   function applyConfig(config: MeasureGridConfig): void {
     measureGridConfig = config;
+    // 表示範囲が変わるため、次回は全データを取得し直す。
+    lastFetchedEtag = null;
+    loadVersion += 1;
     syncControls();
     render();
   }
@@ -405,51 +427,71 @@ export function createMeasureGridController(
   async function loadFromCmrt(): Promise<void> {
     const visibleTracks = getVisibleTracks(measureGridConfig);
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
-    const totalCells = visibleTracks.length * visibleMeasures.length;
-    const lastTrack = visibleTracks[visibleTracks.length - 1];
-    const lastMeasure = visibleMeasures[visibleMeasures.length - 1];
-
-    appendLog(
-      `grid GET開始: track ${visibleTracks[0]}-${lastTrack} / meas ${visibleMeasures[0]}-${lastMeasure}`
-    );
-
-    let okCount = 0;
-    const cellTargets = visibleTracks.flatMap((track) =>
-      visibleMeasures.map((measure) => ({ track, measure }))
-    );
-
-    for (let index = 0; index < cellTargets.length; index += gridGetConcurrency) {
-      const chunk = cellTargets.slice(index, index + gridGetConcurrency);
-      await Promise.all(
-        chunk.map(async ({ track, measure }) => {
-          const key = getMeasureGridCellKey(track, measure);
-          const input = measureGridInputs.get(key);
-          if (input === undefined) {
-            return;
-          }
-
+    const requestVersion = loadVersion;
+    const requestEtag = lastFetchedEtag;
+    const shouldShowLoading = requestEtag === null;
+    for (const track of visibleTracks) {
+      for (const measure of visibleMeasures) {
+        const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
+        if (input !== undefined && shouldShowLoading) {
           setMeasureGridCellStatus(input, "loading", `GET ${track}:${measure} を読み込み中`);
-          const result = await dawClient.getMml(track, measure);
-          if (measureGridInputs.get(key) !== input) {
-            return;
-          }
-
-          if (typeof result !== "string") {
-            setMeasureGridCellStatus(input, "error", dawClientErrorMessage(result));
-            return;
-          }
-
-          measureGridValues.set(key, result);
-          if (input.dataset.dirty !== "true") {
-            input.value = result;
-          }
-          setMeasureGridCellStatus(input, "idle", `GET ${track}:${measure} OK`);
-          okCount += 1;
-        })
-      );
+        }
+      }
     }
 
-    appendLog(`grid GET完了: ${okCount}/${totalCells} セル同期`);
+    const snapshot = await dawClient.getMmls(requestEtag ?? undefined);
+    if (requestVersion !== loadVersion) {
+      return;
+    }
+
+    if (typeof snapshot === "object" && snapshot !== null && "kind" in snapshot) {
+      const errorMessage = dawClientErrorMessage(snapshot);
+      if (lastErrorMessage !== errorMessage) {
+        appendLog(`ERROR: grid GET に失敗しました: ${errorMessage}`);
+      }
+      lastErrorMessage = errorMessage;
+      for (const track of visibleTracks) {
+        for (const measure of visibleMeasures) {
+          const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
+          if (input !== undefined) {
+            setMeasureGridCellStatus(input, "error", errorMessage);
+          }
+        }
+      }
+      return;
+    }
+
+    lastErrorMessage = null;
+    if (snapshot === null) {
+      return;
+    }
+
+    lastFetchedEtag = snapshot.etag;
+    for (const track of visibleTracks) {
+      for (const measure of visibleMeasures) {
+        const key = getMeasureGridCellKey(track, measure);
+        const input = measureGridInputs.get(key);
+        if (input === undefined) {
+          continue;
+        }
+
+        const value = getMmlsCellValue(snapshot.tracks, track, measure);
+        if (value === null) {
+          setMeasureGridCellStatus(
+            input,
+            "error",
+            `GET ${track}:${measure} は /mmls の範囲外です`
+          );
+          continue;
+        }
+
+        measureGridValues.set(key, value);
+        if (input.dataset.dirty !== "true") {
+          input.value = value;
+        }
+        setMeasureGridCellStatus(input, "idle", `GET ${track}:${measure} OK`);
+      }
+    }
   }
 
   return {

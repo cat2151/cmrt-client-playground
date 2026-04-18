@@ -32,6 +32,11 @@ interface GetMmlResponse {
   mml: string;
 }
 
+export interface GetMmlsResponse {
+  etag: string;
+  tracks: string[][];
+}
+
 export interface MeasureInfo {
   mml: string;
   filterName: string | null;
@@ -86,6 +91,16 @@ function isDawClientError(data: unknown): data is DawClientError {
 function isArrayOfStrings(data: readonly unknown[]): data is string[] {
   for (const value of data) {
     if (typeof value !== "string") {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isArrayOfStringArrays(data: readonly unknown[]): data is string[][] {
+  for (const value of data) {
+    if (!Array.isArray(value) || !isArrayOfStrings(value)) {
       return false;
     }
   }
@@ -214,6 +229,59 @@ export class DawClient {
     }
 
     return result.mml;
+  }
+
+  async getMmls(ifNoneMatch?: string): Promise<GetMmlsResponse | null | DawClientError> {
+    try {
+      const response = await fetch(this.endpointUrl("/mmls"), {
+        headers: ifNoneMatch === undefined ? undefined : { "If-None-Match": ifNoneMatch },
+      });
+      if (response.status === 304) {
+        return null;
+      }
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        return { kind: "http", status: response.status, body };
+      }
+
+      const etag = response.headers.get("ETag");
+      if (etag === null) {
+        return {
+          kind: "invalidResponse",
+          message: "missing ETag header",
+        };
+      }
+
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch (e) {
+        return {
+          kind: "invalidResponse",
+          message: String(e),
+        };
+      }
+
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        !("tracks" in data) ||
+        !Array.isArray(data.tracks) ||
+        !isArrayOfStringArrays(data.tracks)
+      ) {
+        return {
+          kind: "invalidResponse",
+          message: "expected an object with tracks: string[][]",
+        };
+      }
+
+      return {
+        etag,
+        tracks: data.tracks,
+      };
+    } catch (e) {
+      return { kind: "transport", message: String(e) };
+    }
   }
 
   private async getJson(path: string): Promise<unknown | DawClientError> {
