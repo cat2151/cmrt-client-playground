@@ -26,6 +26,10 @@ import {
   parseChordTemplates,
   type ChordTemplate,
 } from "./chord-templates.ts";
+import {
+  createChordProgressionEditor,
+  type ChordProgressionEditor,
+} from "./chord-progression-highlight.ts";
 import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import {
   createMeasureGridController,
@@ -77,7 +81,7 @@ const chordTemplateKeySelectEl = document.getElementById(
   "chord-template-key"
 ) as HTMLSelectElement;
 const chordTemplateSelectEl = document.getElementById("chord-template") as HTMLSelectElement;
-const inputEl = document.getElementById("input") as HTMLTextAreaElement;
+const inputEditorEl = document.getElementById("input") as HTMLDivElement;
 const pianoRollContentEl = document.getElementById("piano-roll-content") as HTMLDivElement;
 const localStorageExportButtonEl = document.getElementById(
   "local-storage-export"
@@ -131,6 +135,9 @@ const PIANO_ROLL_HEIGHT_PX = 192;
 const PIANO_ROLL_MIN_NOTE_WIDTH_PERCENT = 0.6;
 const reportedLocalStorageErrors = new Set<string>();
 const smfConverter = createMmlabcToSmfConverter();
+const inputEl: ChordProgressionEditor = createChordProgressionEditor({
+  element: inputEditorEl,
+});
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
   trackStart: 0,
@@ -223,7 +230,7 @@ function loadStoredTarget(
 function loadStoredText(
   key: string,
   fallback: string,
-  element: HTMLInputElement | HTMLTextAreaElement
+  element: HTMLInputElement | ChordProgressionEditor
 ): boolean {
   const storedValue = readLocalStorageItem(key);
   element.value = storedValue ?? fallback;

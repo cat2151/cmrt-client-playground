@@ -128,7 +128,18 @@
             </div>
           </details>
         </div>
-        <textarea id="input" placeholder="C Am G7" aria-label="コード入力"></textarea>
+        <div class="chord-input-editor">
+          <div
+            id="input"
+            class="chord-input-editor__input"
+            contenteditable="true"
+            role="textbox"
+            aria-multiline="true"
+            aria-label="コード入力"
+            spellcheck="false"
+            data-placeholder="Key=C Bass is root. IM7-bVII-IV-I"
+          ></div>
+        </div>
         <section id="piano-roll-panel" class="piano-roll-panel" aria-label="piano roll">
           <div id="piano-roll" class="piano-roll">
             <div id="piano-roll-content" class="piano-roll__content piano-roll__content--empty"></div>

@@ -88,6 +88,59 @@ textarea {
   margin-bottom: 0.5rem;
 }
 
+.chord-input-editor {
+  margin-bottom: 0.5rem;
+  border: 1px solid #3e3d32;
+  border-radius: 0.5rem;
+  background: #272822;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.chord-input-editor:focus-within {
+  border-color: #66d9ef;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 0 0 2px rgb(102 217 239 / 0.18);
+}
+
+.chord-input-editor__input {
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chord-input-editor__input {
+  display: block;
+  margin: 0;
+  color: #f8f8f2;
+  caret-color: #f8f8f2;
+  background: transparent;
+  overflow-wrap: anywhere;
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: none;
+}
+
+.chord-input-editor__input:focus {
+  outline: none;
+}
+
+.chord-input-editor__input:empty::before {
+  content: attr(data-placeholder);
+  color: #a59f85;
+  pointer-events: none;
+}
+
+.chord-input-editor__token {
+  white-space: pre-wrap;
+}
+
 .piano-roll-panel {
   margin-bottom: 1rem;
   padding: 0.5rem;
@@ -622,6 +675,25 @@ a {
     color: inherit;
     background: #1f2937;
     border: 1px solid #4b5563;
+  }
+
+  .chord-input-editor {
+    border-color: #3e3d32;
+    background: #272822;
+  }
+
+  .chord-input-editor:focus-within {
+    border-color: #66d9ef;
+  }
+
+  .chord-input-editor__input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .chord-input-editor__input:empty::before {
+    color: #a59f85;
   }
 
   button.transport-button {
