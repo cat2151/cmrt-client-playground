@@ -82,39 +82,35 @@
           >
             <option value="">template loading...</option>
           </select>
-        </div>
-        <textarea id="input" placeholder="C Am G7" aria-label="コード入力"></textarea>
-        <section class="measure-grid-panel" aria-label="measure grid">
-          <div class="measure-grid-toolbar">
-            <details class="measure-grid-settings">
-              <summary>設定</summary>
-              <div class="measure-grid-settings__panel">
-                <p class="measure-grid-settings__title">データ</p>
-                <div class="editor-toolbar">
-                  <button id="local-storage-export" type="button">JSON export</button>
-                  <button id="local-storage-import" type="button">JSON import</button>
-                  <input id="local-storage-import-file" type="file" accept="application/json" hidden />
-                </div>
-                <p class="measure-grid-settings__title">送信先</p>
-                <div class="target-grid measure-grid-targets">
-                  <div>
-                    <label for="track">chord track</label>
-                   <input id="track" type="number" min="0" step="1" value="1" />
+          <details class="measure-grid-settings">
+            <summary>設定</summary>
+            <div class="measure-grid-settings__panel">
+              <p class="measure-grid-settings__title">データ</p>
+              <div class="editor-toolbar">
+                <button id="local-storage-export" type="button">JSON export</button>
+                <button id="local-storage-import" type="button">JSON import</button>
+                <input id="local-storage-import-file" type="file" accept="application/json" hidden />
+              </div>
+              <p class="measure-grid-settings__title">送信先</p>
+              <div class="target-grid measure-grid-targets">
+                <div>
+                  <label for="track">chord track</label>
+                  <input id="track" type="number" min="0" step="1" value="1" />
                 </div>
                 <div>
                   <label for="measure">chord meas</label>
-                   <input id="measure" type="number" min="0" step="1" value="1" />
+                  <input id="measure" type="number" min="0" step="1" value="1" />
                 </div>
                 <div>
                   <label for="bass-track">bass track</label>
-                   <input id="bass-track" type="number" min="0" step="1" value="1" />
+                  <input id="bass-track" type="number" min="0" step="1" value="1" />
                 </div>
               </div>
               <p class="measure-grid-settings__title">表示範囲</p>
               <div class="target-grid measure-grid-targets">
                 <div>
                   <label for="grid-track-start">トラック開始</label>
-                   <input id="grid-track-start" type="number" min="0" step="1" value="0" />
+                  <input id="grid-track-start" type="number" min="0" step="1" value="0" />
                 </div>
                 <div>
                   <label for="grid-track-count">トラック数</label>
@@ -132,13 +128,15 @@
             </div>
           </details>
         </div>
-        <div class="measure-grid-scroll">
-          <table class="measure-grid-table">
-            <thead id="measure-grid-head"></thead>
-            <tbody id="measure-grid-body"></tbody>
-          </table>
-        </div>
-      </section>
+        <textarea id="input" placeholder="C Am G7" aria-label="コード入力"></textarea>
+        <section class="measure-grid-panel" aria-label="measure grid">
+          <div class="measure-grid-scroll">
+            <table class="measure-grid-table">
+              <thead id="measure-grid-head"></thead>
+              <tbody id="measure-grid-body"></tbody>
+            </table>
+          </div>
+        </section>
       <details class="log-panel">
         <summary>ログ</summary>
         <div id="log"></div>

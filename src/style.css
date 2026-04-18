@@ -316,20 +316,8 @@ button.transport-button:disabled:active {
   margin-top: 1rem;
 }
 
-.measure-grid-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.measure-grid-toolbar h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
 .measure-grid-settings {
+  flex: 0 0 auto;
   position: relative;
 }
 

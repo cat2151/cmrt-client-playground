@@ -25,6 +25,10 @@ describe("splitBassRootChordSegment", () => {
       chordMml: "'a1<ce'",
       bassMml: "'>a1'",
     });
+    expect(splitBassRootChordSegment("'>a+1<aa+<df'")).toEqual({
+      chordMml: "'a1a+<df'",
+      bassMml: "'>a+1'",
+    });
   });
 });
 

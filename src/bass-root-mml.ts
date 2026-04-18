@@ -23,8 +23,7 @@ function isBassRootPattern(tokens: ParsedNoteToken[]): boolean {
     bassToken.prefix.includes(">") &&
     bassToken.lengthText !== "" &&
     chordRootToken.lengthText === "" &&
-    chordRootToken.dotText === "" &&
-    bassToken.pitch === chordRootToken.pitch
+    chordRootToken.dotText === ""
   );
 }
 
