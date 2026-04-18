@@ -1,12 +1,14 @@
 import { splitBassRootMmlByTrack } from "./bass-root-mml.ts";
-import { chordToMml } from "./chord-to-mml.ts";
+import {
+  buildChordPlaybackSource,
+  type ChordPlaybackSource,
+} from "./chord-playback-source.ts";
 import {
   assignMeasuresToChunks,
   parseChordSegments,
   splitChordSegmentsByMeasure,
   splitSanitizedMmlIntoChordSegments,
 } from "./measure-input.ts";
-import { sanitizeMmlForPost } from "./post-config.ts";
 import { type SmfConverter } from "./smf-export.ts";
 import {
   buildPianoRollDisplayData,
@@ -121,17 +123,19 @@ export async function buildPianoRollPreview(
   input: string,
   converter: SmfConverter
 ): Promise<PianoRollPreviewResult> {
-  if (input.trim() === "") {
-    return { ok: false, reason: "empty-input" };
+  const source = buildChordPlaybackSource(input);
+  return buildPianoRollPreviewFromSource(source, converter);
+}
+
+export async function buildPianoRollPreviewFromSource(
+  source: ChordPlaybackSource,
+  converter: SmfConverter
+): Promise<PianoRollPreviewResult> {
+  if (!source.ok) {
+    return source;
   }
 
-  const convertedMml = chordToMml(input);
-  if (convertedMml === null) {
-    return { ok: false, reason: "unrecognized-chord" };
-  }
-
-  const { mml } = sanitizeMmlForPost(convertedMml);
-  const plannedMeasures = planPianoRollPreviewMeasureTracks(mml);
+  const plannedMeasures = planPianoRollPreviewMeasureTracks(source.sanitizedMml);
   if (plannedMeasures === null) {
     throw new Error("preview 用の MML を measure ごとに分割できませんでした");
   }
@@ -174,8 +178,8 @@ export async function buildPianoRollPreview(
 
   return {
     ok: true,
-    mml,
+    mml: source.sanitizedMml,
     data,
-    summary: formatPianoRollDebugSummary({ mml, data }),
+    summary: formatPianoRollDebugSummary({ mml: source.sanitizedMml, data }),
   };
 }

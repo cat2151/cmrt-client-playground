@@ -20,6 +20,7 @@ import {
   parseChordHistoryStorage,
   serializeChordHistory,
 } from "./chord-history.ts";
+import { buildChordPlaybackSource } from "./chord-playback-source.ts";
 import {
   formatChordTemplateInput,
   formatChordTemplateOptionLabel,
@@ -43,7 +44,7 @@ import {
   resolveBassTargets,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
-import { buildPianoRollPreview } from "./piano-roll-preview.ts";
+import { buildPianoRollPreviewFromSource } from "./piano-roll-preview.ts";
 import { sendMml } from "./send-mml.ts";
 import {
   convertChordProgressionToSmf,
@@ -58,6 +59,11 @@ import {
   STARTUP_CONNECTING_OVERLAY,
   type StartupOverlayState,
 } from "./startup-overlay.ts";
+import {
+  initializeToneChordPlayback,
+  playToneChordMml,
+  stopToneChordPlayback,
+} from "./tone-chord-playback.ts";
 import { getPlaybackButtonState, runPlaybackAction } from "./playback.ts";
 
 const appShellEl = document.getElementById("app-shell") as HTMLDivElement;
@@ -690,17 +696,26 @@ let measureGridAutoFetchTimer: number | null = null;
 let startupConnectivityRetryTimer: number | null = null;
 let isCheckingStartupConnectivity = false;
 let isCmrtReady = false;
+let isToneFallbackMode = false;
 let appliedAbRepeatRange: StartupAbRepeatRange | null = null;
-let isPlaying = false;
+let currentPlaybackBackend: "cmrt" | "tone" | null = null;
 let chordAnalysisErrorBalloonTimer: number | null = null;
 let isSmfExporting = false;
 let pianoRollPreviewRequestId = 0;
 let lastPreviewDebugSummary: string | null = null;
+let toneChordPreviewRequestId = 0;
+let toneFallbackPlaybackResetTimer: number | null = null;
+let lastTonePreviewErrorMessage: string | null = null;
 
 function syncPlaybackButtonState(): void {
-  const buttonState = getPlaybackButtonState(isPlaying);
+  const buttonState = getPlaybackButtonState(currentPlaybackBackend !== null);
   playStartButtonEl.disabled = buttonState.playDisabled;
   playStopButtonEl.disabled = buttonState.stopDisabled;
+}
+
+function setPlaybackBackend(nextBackend: "cmrt" | "tone" | null): void {
+  currentPlaybackBackend = nextBackend;
+  syncPlaybackButtonState();
 }
 
 function hideChordAnalysisErrorBalloon(): void {
@@ -803,16 +818,83 @@ function renderPianoRollPreview(options: {
   }
 }
 
+function cancelToneChordPreview(): void {
+  toneChordPreviewRequestId += 1;
+  stopToneChordPlayback();
+}
+
+function clearToneFallbackPlaybackReset(): void {
+  if (toneFallbackPlaybackResetTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(toneFallbackPlaybackResetTimer);
+  toneFallbackPlaybackResetTimer = null;
+}
+
+function scheduleToneFallbackPlaybackReset(durationSeconds: number): void {
+  clearToneFallbackPlaybackReset();
+  toneFallbackPlaybackResetTimer = window.setTimeout(() => {
+    toneFallbackPlaybackResetTimer = null;
+    if (currentPlaybackBackend !== "tone") {
+      return;
+    }
+
+    setPlaybackBackend(null);
+  }, Math.max(0, durationSeconds * 1000 + 100));
+}
+
+function reportTonePreviewError(error: unknown): void {
+  const message = `ERROR: Tone.js chord preview に失敗しました: ${String(error)}`;
+  if (message === lastTonePreviewErrorMessage) {
+    return;
+  }
+
+  lastTonePreviewErrorMessage = message;
+  appendLog(message);
+}
+
+async function syncToneChordPreview(): Promise<void> {
+  if (currentPlaybackBackend !== null) {
+    return;
+  }
+
+  const requestId = ++toneChordPreviewRequestId;
+  const source = buildChordPlaybackSource(inputEl.value);
+  if (!source.ok) {
+    stopToneChordPlayback();
+    return;
+  }
+
+  try {
+    await playToneChordMml({
+      mml: source.chordMml,
+      shouldContinue: () =>
+        requestId === toneChordPreviewRequestId && currentPlaybackBackend === null,
+    });
+    if (requestId === toneChordPreviewRequestId) {
+      lastTonePreviewErrorMessage = null;
+    }
+  } catch (error: unknown) {
+    if (requestId !== toneChordPreviewRequestId) {
+      return;
+    }
+
+    stopToneChordPlayback();
+    reportTonePreviewError(error);
+  }
+}
+
 async function syncPianoRollPreview(): Promise<void> {
   const requestId = ++pianoRollPreviewRequestId;
-  const currentInput = inputEl.value;
-  if (currentInput.trim() === "") {
+  const source = buildChordPlaybackSource(inputEl.value);
+  if (!source.ok) {
     clearPianoRollPreview();
     return;
   }
 
   try {
-    const preview = await buildPianoRollPreview(currentInput, smfConverter);
+    const preview = await buildPianoRollPreviewFromSource(source, smfConverter);
     if (requestId !== pianoRollPreviewRequestId) {
       return;
     }
@@ -906,6 +988,18 @@ function scheduleStartupConnectivityRetry(): void {
   }, STARTUP_CONNECTIVITY_RETRY_MS);
 }
 
+function activateToneFallbackMode(error: ReturnType<typeof getStartupErrorOverlay>): void {
+  hideStartupOverlay();
+  if (isToneFallbackMode) {
+    return;
+  }
+
+  isToneFallbackMode = true;
+  appendLog(
+    `cmrt疎通確認エラーのため Tone.js chord fallback で継続します: ${error.title}`
+  );
+}
+
 async function autoSelectTracksFromCmrt(options: {
   shouldSelectChordTrack: boolean;
   shouldSelectBassTrack: boolean;
@@ -960,21 +1054,27 @@ async function autoSelectTracksFromCmrt(options: {
 async function startAppAfterCmrtReady(options: {
   shouldSelectChordTrack: boolean;
   shouldSelectBassTrack: boolean;
+  autoStartPlayback: boolean;
 }): Promise<void> {
+  isToneFallbackMode = false;
   hideStartupOverlay();
   clearStartupConnectivityRetry();
   await applyAbRepeat({ source: "startup", force: true });
   void autoSelectTracksFromCmrt(options);
   void reloadMeasureGridFromCmrt();
-  const started = await runPlaybackAction({
-    action: "start",
-    source: "startup",
-    client: dawClient,
-    appendLog,
-  });
-  if (started) {
-    isPlaying = true;
-    syncPlaybackButtonState();
+  if (options.autoStartPlayback) {
+    cancelToneChordPreview();
+    const started = await runPlaybackAction({
+      action: "start",
+      source: "startup",
+      client: dawClient,
+      appendLog,
+    });
+    if (started) {
+      setPlaybackBackend("cmrt");
+    }
+  } else {
+    appendLog("cmrt接続確認に成功しました");
   }
 
   if (measureGridAutoFetchTimer !== null) {
@@ -995,15 +1095,19 @@ async function ensureCmrtReady(): Promise<void> {
   try {
     const result = await dawClient.getMmls();
     if (typeof result === "object" && result !== null && "kind" in result) {
-      showStartupOverlay(getStartupErrorOverlay(result));
+      const overlayState = getStartupErrorOverlay(result);
+      showStartupOverlay(overlayState);
+      activateToneFallbackMode(overlayState);
       scheduleStartupConnectivityRetry();
       return;
     }
 
+    const wasUsingToneFallback = isToneFallbackMode;
     isCmrtReady = true;
     await startAppAfterCmrtReady({
       shouldSelectChordTrack: !hasStoredChordTrack,
       shouldSelectBassTrack: !hasStoredBassTrack,
+      autoStartPlayback: !wasUsingToneFallback,
     });
   } finally {
     isCheckingStartupConnectivity = false;
@@ -1129,6 +1233,11 @@ const debouncedSyncAbRepeat = createDebouncedCallback(() => {
 }, AUTO_SEND_DELAY_MS);
 
 function syncTopLevelAutoSend(): void {
+  if (!isCmrtReady) {
+    debouncedSendMml.cancel();
+    return;
+  }
+
   const canSendToChordTargets =
     parseNonNegativeInteger(chordTrackEl.value) !== null &&
     parseNonNegativeInteger(chordMeasureEl.value) !== null;
@@ -1152,6 +1261,7 @@ function syncChordInputStateAfterChange(): void {
   syncTopLevelAutoSend();
   syncTopLevelAbRepeat();
   void syncPianoRollPreview();
+  void syncToneChordPreview();
 }
 
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
@@ -1162,6 +1272,9 @@ measureGridController.render();
 syncMeasureGridHighlightTargets();
 syncPlaybackButtonState();
 void syncPianoRollPreview();
+void initializeToneChordPlayback().catch((error: unknown) => {
+  reportTonePreviewError(error);
+});
 showStartupOverlay(STARTUP_CONNECTING_OVERLAY);
 void ensureCmrtReady();
 
@@ -1173,6 +1286,8 @@ window.addEventListener("beforeunload", () => {
   cancelQueuedMeasureGridReload();
   debouncedSendMml.cancel();
   debouncedSyncAbRepeat.cancel();
+  clearToneFallbackPlaybackReset();
+  cancelToneChordPreview();
   hideChordAnalysisErrorBalloon();
 });
 
@@ -1222,6 +1337,33 @@ chordTemplateSelectEl.addEventListener("change", () => {
   inputEl.focus();
 });
 playStartButtonEl.addEventListener("click", async () => {
+  cancelToneChordPreview();
+  clearToneFallbackPlaybackReset();
+  if (!isCmrtReady) {
+    const source = buildChordPlaybackSource(inputEl.value);
+    if (!source.ok) {
+      if (source.reason === "unrecognized-chord") {
+        const message = `コードを認識できませんでした: "${inputEl.value.trim()}"`;
+        appendLog(`ERROR: ${message}`);
+        showChordAnalysisErrorBalloon(message);
+      }
+      return;
+    }
+
+    try {
+      const durationSeconds = await playToneChordMml({
+        mml: source.chordMml,
+      });
+      appendLog("Tone.js chord play を開始しました");
+      setPlaybackBackend("tone");
+      scheduleToneFallbackPlaybackReset(durationSeconds);
+    } catch (error: unknown) {
+      appendLog(`ERROR: Tone.js chord play の開始に失敗しました: ${String(error)}`);
+    }
+    return;
+  }
+
+  stopToneChordPlayback();
   const started = await runPlaybackAction({
     action: "start",
     source: "manual",
@@ -1232,10 +1374,17 @@ playStartButtonEl.addEventListener("click", async () => {
     return;
   }
 
-  isPlaying = true;
-  syncPlaybackButtonState();
+  setPlaybackBackend("cmrt");
 });
 playStopButtonEl.addEventListener("click", async () => {
+  clearToneFallbackPlaybackReset();
+  if (currentPlaybackBackend === "tone") {
+    stopToneChordPlayback();
+    appendLog("Tone.js chord play を停止しました");
+    setPlaybackBackend(null);
+    return;
+  }
+
   const stopped = await runPlaybackAction({
     action: "stop",
     source: "manual",
@@ -1246,8 +1395,7 @@ playStopButtonEl.addEventListener("click", async () => {
     return;
   }
 
-  isPlaying = false;
-  syncPlaybackButtonState();
+  setPlaybackBackend(null);
 });
 logToggleButtonEl.addEventListener("click", () => {
   setLogVisible(logEl.hidden);

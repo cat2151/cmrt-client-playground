@@ -143,6 +143,7 @@ tmp/
 
 # Generated browser assets fetched from cat2151/mmlabc-to-smf-rust main.
 public/vendor/mmlabc-to-smf-rust/
+public/vendor/tonejs-mml-to-json/
 
 # Lock files (using bun.lockb instead)
 package-lock.json

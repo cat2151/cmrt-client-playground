@@ -5,16 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/fetch-smf-assets.mjs --if-missing && tsc && vite build",
+    "build": "node scripts/fetch-smf-assets.mjs --if-missing && node scripts/copy-tonejs-mml-assets.mjs && tsc && vite build",
     "fetch:smf-assets": "node scripts/fetch-smf-assets.mjs",
-    "postinstall": "node scripts/fetch-smf-assets.mjs",
+    "postinstall": "node scripts/fetch-smf-assets.mjs && node scripts/copy-tonejs-mml-assets.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
     "mmlabc-to-smf-rust": "github:cat2151/mmlabc-to-smf-rust",
-    "tone": "^15.1.22"
+    "tone": "^15.1.22",
+    "tonejs-json-sequencer": "github:cat2151/tonejs-json-sequencer",
+    "tonejs-mml-to-json": "github:cat2151/tonejs-mml-to-json"
   },
   "devDependencies": {
     "typescript": "~5.6.2",
