@@ -19,12 +19,34 @@ function isBassRootPattern(tokens: ParsedNoteToken[]): boolean {
   }
 
   const [bassToken, chordRootToken] = tokens;
+  const hasMatchingPitchLater = tokens
+    .slice(1)
+    .some((token) => token.pitch === bassToken.pitch);
   return (
-    bassToken.prefix.includes(">") &&
-    bassToken.lengthText !== "" &&
     chordRootToken.lengthText === "" &&
-    chordRootToken.dotText === ""
+    chordRootToken.dotText === "" &&
+    (bassToken.prefix !== "" ||
+      (bassToken.lengthText !== "" && hasMatchingPitchLater))
   );
+}
+
+function normalizeOctavePrefix(prefix: string): string {
+  let octaveOffset = 0;
+  for (const char of prefix) {
+    if (char === ">") {
+      octaveOffset += 1;
+    } else if (char === "<") {
+      octaveOffset -= 1;
+    }
+  }
+
+  if (octaveOffset > 0) {
+    return ">".repeat(octaveOffset);
+  }
+  if (octaveOffset < 0) {
+    return "<".repeat(-octaveOffset);
+  }
+  return "";
 }
 
 function parseChordSegmentBody(body: string): ParsedNoteToken[] | null {
@@ -71,7 +93,17 @@ export function splitBassRootChordSegment(chordSegment: string): SplitMmlByTrack
     return { chordMml: chordSegment, bassMml: "" };
   }
 
-  const chordRootWithLength = `${tokens[1].pitch}${tokens[0].lengthText}${tokens[0].dotText}`;
+  if (tokens[0].prefix === "") {
+    const chordRootWithLength = `${tokens[1].prefix}${tokens[1].pitch}${tokens[0].lengthText}${tokens[0].dotText}`;
+    const remainingNotes = tokens.slice(2).map((token) => token.raw).join("");
+    return {
+      chordMml: `'${chordRootWithLength}${remainingNotes}'`,
+      bassMml: `'${tokens[0].raw}'`,
+    };
+  }
+
+  const chordRootPrefix = normalizeOctavePrefix(`${tokens[0].prefix}${tokens[1].prefix}`);
+  const chordRootWithLength = `${chordRootPrefix}${tokens[1].pitch}${tokens[0].lengthText}${tokens[0].dotText}`;
   const remainingNotes = tokens.slice(2).map((token) => token.raw).join("");
 
   return {

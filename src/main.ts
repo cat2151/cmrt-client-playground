@@ -14,6 +14,7 @@ import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
 } from "./auto-targets.ts";
+import { formatLogTimestamp } from "./log-timestamp.ts";
 import {
   addChordHistoryEntry,
   parseChordHistoryStorage,
@@ -38,12 +39,16 @@ import {
   resolveBassTargets,
 } from "./post-config.ts";
 import { createDebouncedCallback } from "./debounce.ts";
+import { buildPianoRollPreview } from "./piano-roll-preview.ts";
 import { sendMml } from "./send-mml.ts";
 import {
   convertChordProgressionToSmf,
   createMmlabcToSmfConverter,
   SMF_EXPORT_FILENAME,
 } from "./smf-export.ts";
+import {
+  type PianoRollDisplayData,
+} from "./smf-piano-roll.ts";
 import {
   getStartupErrorOverlay,
   STARTUP_CONNECTING_OVERLAY,
@@ -73,6 +78,7 @@ const chordTemplateKeySelectEl = document.getElementById(
 ) as HTMLSelectElement;
 const chordTemplateSelectEl = document.getElementById("chord-template") as HTMLSelectElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
+const pianoRollContentEl = document.getElementById("piano-roll-content") as HTMLDivElement;
 const localStorageExportButtonEl = document.getElementById(
   "local-storage-export"
 ) as HTMLButtonElement;
@@ -121,6 +127,8 @@ const CHORD_HISTORY_SELECT_MIN_CH = 12;
 const CHORD_HISTORY_SELECT_MAX_CH = 24;
 const CHORD_ANALYSIS_ERROR_BALLOON_MS = 5000;
 const CHORD_ANALYSIS_ERROR_BALLOON_VIEWPORT_MARGIN_PX = 8;
+const PIANO_ROLL_HEIGHT_PX = 192;
+const PIANO_ROLL_MIN_NOTE_WIDTH_PERCENT = 0.6;
 const reportedLocalStorageErrors = new Set<string>();
 const smfConverter = createMmlabcToSmfConverter();
 
@@ -137,7 +145,7 @@ let chordTemplateLoadState: "loading" | "ready" | "error" = "loading";
 let selectedChordTemplateDegrees: string | null = null;
 
 function appendLog(message: string): void {
-  const timestamp = new Date().toISOString();
+  const timestamp = formatLogTimestamp();
   logEl.textContent += `[${timestamp}] ${message}\n`;
   logEl.scrollTop = logEl.scrollHeight;
 }
@@ -679,6 +687,8 @@ let appliedAbRepeatRange: StartupAbRepeatRange | null = null;
 let isPlaying = false;
 let chordAnalysisErrorBalloonTimer: number | null = null;
 let isSmfExporting = false;
+let pianoRollPreviewRequestId = 0;
+let lastPreviewDebugSummary: string | null = null;
 
 function syncPlaybackButtonState(): void {
   const buttonState = getPlaybackButtonState(isPlaying);
@@ -741,6 +751,81 @@ function showChordAnalysisErrorBalloon(message: string): void {
       "--error-balloon-viewport-offset-y"
     );
   }, CHORD_ANALYSIS_ERROR_BALLOON_MS);
+}
+
+function clearPianoRollPreview(): void {
+  pianoRollContentEl.replaceChildren();
+  pianoRollContentEl.classList.add("piano-roll__content--empty");
+  pianoRollContentEl.style.removeProperty("background-size");
+  lastPreviewDebugSummary = null;
+}
+
+function renderPianoRollPreview(options: {
+  data: PianoRollDisplayData;
+  summary: string;
+}): void {
+  const pianoRollData = options.data;
+  const totalTicks = Math.max(1, pianoRollData.totalTicks);
+  const quarterNoteCount = Math.max(1, totalTicks / pianoRollData.division);
+  const pitchSpan = Math.max(1, pianoRollData.maxPitch - pianoRollData.minPitch + 1);
+  pianoRollContentEl.replaceChildren();
+  pianoRollContentEl.classList.remove("piano-roll__content--empty");
+  pianoRollContentEl.style.backgroundSize = `${100 / quarterNoteCount}% ${
+    PIANO_ROLL_HEIGHT_PX / pitchSpan
+  }px`;
+
+  for (const note of pianoRollData.notes) {
+    const noteEl = document.createElement("div");
+    noteEl.className = `piano-roll__note piano-roll__note--${note.role}`;
+    const noteHeight = Math.max(PIANO_ROLL_HEIGHT_PX / pitchSpan - 1, 1);
+    noteEl.style.left = `${(note.startTick / totalTicks) * 100}%`;
+    noteEl.style.top = `${
+      ((pianoRollData.maxPitch - note.pitch) / pitchSpan) * PIANO_ROLL_HEIGHT_PX
+    }px`;
+    noteEl.style.width = `${Math.max(
+      PIANO_ROLL_MIN_NOTE_WIDTH_PERCENT,
+      ((note.endTick - note.startTick) / totalTicks) * 100
+    )}%`;
+    noteEl.style.height = `${noteHeight}px`;
+    pianoRollContentEl.append(noteEl);
+  }
+
+  if (options.summary !== lastPreviewDebugSummary) {
+    appendLog(options.summary);
+    lastPreviewDebugSummary = options.summary;
+  }
+}
+
+async function syncPianoRollPreview(): Promise<void> {
+  const requestId = ++pianoRollPreviewRequestId;
+  const currentInput = inputEl.value;
+  if (currentInput.trim() === "") {
+    clearPianoRollPreview();
+    return;
+  }
+
+  try {
+    const preview = await buildPianoRollPreview(currentInput, smfConverter);
+    if (requestId !== pianoRollPreviewRequestId) {
+      return;
+    }
+    if (!preview.ok) {
+      clearPianoRollPreview();
+      return;
+    }
+
+    renderPianoRollPreview({
+      data: preview.data,
+      summary: preview.summary,
+    });
+  } catch (error: unknown) {
+    if (requestId !== pianoRollPreviewRequestId) {
+      return;
+    }
+
+    clearPianoRollPreview();
+    appendLog(`ERROR: piano roll 表示に失敗しました: ${String(error)}`);
+  }
 }
 
 function getCurrentAbRepeatRange(): StartupAbRepeatRange | null {
@@ -1059,6 +1144,7 @@ function syncChordInputStateAfterChange(): void {
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
   syncTopLevelAbRepeat();
+  void syncPianoRollPreview();
 }
 
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
@@ -1068,6 +1154,7 @@ measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
 syncPlaybackButtonState();
+void syncPianoRollPreview();
 showStartupOverlay(STARTUP_CONNECTING_OVERLAY);
 void ensureCmrtReady();
 

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { convertChordProgressionToSmf, type SmfConverter } from "./smf-export.ts";
+import { formatPianoRollDebugSummary, parseSmfToPianoRollData } from "./smf-piano-roll.ts";
+import { buildPianoRollPreview } from "./piano-roll-preview.ts";
+import {
+  convertChordProgressionToSmf,
+  createMmlabcToSmfConverter,
+  type SmfConverter,
+} from "./smf-export.ts";
 
 describe("convertChordProgressionToSmf", () => {
   it("returns SMF data from a recognized chord progression", async () => {
@@ -64,5 +70,51 @@ describe("convertChordProgressionToSmf", () => {
       ok: false,
       message: "SMF変換に失敗しました: boom",
     });
+  });
+
+  it("produces different piano-roll summaries for F and F^1 with the real converter", async () => {
+    const converter = createMmlabcToSmfConverter();
+    const fResult = await convertChordProgressionToSmf("F", converter);
+    const fInversionResult = await convertChordProgressionToSmf("F^1", converter);
+
+    if (!fResult.ok || !fInversionResult.ok) {
+      throw new Error(
+        `expected both conversions to succeed: ${JSON.stringify({
+          fResult,
+          fInversionResult,
+        })}`
+      );
+    }
+
+    const fSummary = formatPianoRollDebugSummary({
+      mml: fResult.mml,
+      data: parseSmfToPianoRollData(fResult.smfData),
+    });
+    const fInversionSummary = formatPianoRollDebugSummary({
+      mml: fInversionResult.mml,
+      data: parseSmfToPianoRollData(fInversionResult.smfData),
+    });
+
+    expect(fSummary).toBe("piano roll preview: mml=v11'f1a<c' note numbers=[65, 69, 72]");
+    expect(fInversionSummary).toBe(
+      "piano roll preview: mml=v11'a1<cf' note numbers=[69, 72, 77]"
+    );
+  });
+
+  it("matches the preview-route summaries for F and F^1", async () => {
+    const converter = createMmlabcToSmfConverter();
+    const fPreview = await buildPianoRollPreview("F", converter);
+    const fInversionPreview = await buildPianoRollPreview("F^1", converter);
+
+    if (!fPreview.ok || !fInversionPreview.ok) {
+      throw new Error(
+        `expected both previews to succeed: ${JSON.stringify({ fPreview, fInversionPreview })}`
+      );
+    }
+
+    expect(fPreview.summary).toBe("piano roll preview: mml='f1a<c' note numbers=[65, 69, 72]");
+    expect(fInversionPreview.summary).toBe(
+      "piano roll preview: mml='a1<cf' note numbers=[69, 72, 77]"
+    );
   });
 });

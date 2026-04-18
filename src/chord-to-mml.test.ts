@@ -42,4 +42,9 @@ describe("chordToMml (using chord2mml library)", () => {
     expect(result).toContain("a");
     expect(result).toContain("c");
   });
+
+  it("distinguishes F and F^1 voicings", () => {
+    expect(chordToMml("F")).toBe("v11'f1a<c'");
+    expect(chordToMml("F^1")).toBe("v11'a1<cf'");
+  });
 });

@@ -70,8 +70,58 @@ function formatUnknownError(error: unknown): string {
     : String(error);
 }
 
-function resolveSmfAssetUrl(path: string): string {
-  return new URL(`${MMLABC_TO_SMF_ASSET_ROOT}/${path}`, document.baseURI).href;
+function isNodeRuntime(): boolean {
+  const runtimeProcess = (globalThis as { process?: { versions?: { node?: string } } }).process;
+  return runtimeProcess?.versions?.node !== undefined;
+}
+
+function getNodeCwd(): string {
+  const runtimeProcess = (globalThis as { process?: { cwd(): string } }).process;
+  if (runtimeProcess === undefined) {
+    throw new Error("Node.js process is unavailable");
+  }
+  return runtimeProcess.cwd();
+}
+
+function toFileDirectoryHref(path: string): string {
+  const normalizedPath = path.replace(/\\/g, "/").replace(/^\/*([A-Za-z]:)/, "/$1");
+  return new URL(`file://${normalizedPath.endsWith("/") ? normalizedPath : `${normalizedPath}/`}`).href;
+}
+
+function getSmfAssetBaseUri(): string {
+  const runtimeDocument = (globalThis as { document?: { baseURI?: string } }).document;
+  if (runtimeDocument?.baseURI !== undefined) {
+    return runtimeDocument.baseURI;
+  }
+  if (isNodeRuntime()) {
+    return toFileDirectoryHref(`${getNodeCwd()}\\public\\`);
+  }
+  throw new Error("SMF asset base URI could not be resolved");
+}
+
+function resolveSmfAssetUrl(path: string): URL {
+  return new URL(`${MMLABC_TO_SMF_ASSET_ROOT}/${path}`, getSmfAssetBaseUri());
+}
+
+function resolveSmfAssetHref(path: string): string {
+  return resolveSmfAssetUrl(path).href;
+}
+
+function resolveSmfAssetFilePath(path: string): string {
+  const { pathname } = resolveSmfAssetUrl(path);
+  const decodedPath = decodeURIComponent(pathname);
+  if (/^\/[A-Za-z]:\//.test(decodedPath)) {
+    return decodedPath.slice(1).replace(/\//g, "\\");
+  }
+  return decodedPath;
+}
+
+async function readNodeBinaryAsset(path: string): Promise<Uint8Array> {
+  const moduleSpecifier = "node:fs/promises";
+  const { readFile } = (await import(
+    /* @vite-ignore */ moduleSpecifier
+  )) as { readFile(path: string): Promise<Uint8Array> };
+  return new Uint8Array(await readFile(resolveSmfAssetFilePath(path)));
 }
 
 function treeToJSON(node: TreeSitterNode, source: string): ParseTreeJsonNode {
@@ -102,12 +152,12 @@ export function createMmlabcToSmfConverter(): SmfConverter {
     }
 
     initPromise = (async () => {
-      const [treeSitterModule, wasmModule] = await Promise.all([
-        import(
-          /* @vite-ignore */ resolveSmfAssetUrl("demo/web-tree-sitter.js")
+        const [treeSitterModule, wasmModule] = await Promise.all([
+          import(
+          /* @vite-ignore */ resolveSmfAssetHref("demo/web-tree-sitter.js")
         ) as Promise<TreeSitterModule>,
         import(
-          /* @vite-ignore */ resolveSmfAssetUrl(
+          /* @vite-ignore */ resolveSmfAssetHref(
             "mmlabc-to-smf-wasm/pkg/mmlabc_to_smf_wasm.js"
           )
         ) as Promise<MmlabcToSmfWasmModule>,
@@ -115,17 +165,21 @@ export function createMmlabcToSmfConverter(): SmfConverter {
 
       const { Parser, Language } = treeSitterModule;
       await Parser.init({
-        locateFile: (filename: string) => resolveSmfAssetUrl(`demo/${filename}`),
+        locateFile: (filename: string) => resolveSmfAssetHref(`demo/${filename}`),
       });
 
       const parser = new Parser();
       const language = await Language.load(
-        resolveSmfAssetUrl("tree-sitter-mml/tree-sitter-mml.wasm")
+        isNodeRuntime()
+          ? resolveSmfAssetFilePath("tree-sitter-mml/tree-sitter-mml.wasm")
+          : resolveSmfAssetHref("tree-sitter-mml/tree-sitter-mml.wasm")
       );
       parser.setLanguage(language);
 
       await wasmModule.default(
-        resolveSmfAssetUrl("mmlabc-to-smf-wasm/pkg/mmlabc_to_smf_wasm_bg.wasm")
+        isNodeRuntime()
+          ? await readNodeBinaryAsset("mmlabc-to-smf-wasm/pkg/mmlabc_to_smf_wasm_bg.wasm")
+          : resolveSmfAssetHref("mmlabc-to-smf-wasm/pkg/mmlabc_to_smf_wasm_bg.wasm")
       );
 
       return { parser, wasm: wasmModule };

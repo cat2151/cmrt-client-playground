@@ -21,6 +21,18 @@ describe("splitBassRootChordSegment", () => {
       chordMml: "'c1eg'",
       bassMml: "'>c1'",
     });
+    expect(splitBassRootChordSegment("'c1egb<c'")).toEqual({
+      chordMml: "'e1gb<c'",
+      bassMml: "'c1'",
+    });
+    expect(splitBassRootChordSegment("'<ce'")).toEqual({
+      chordMml: "'<e'",
+      bassMml: "'<c'",
+    });
+    expect(splitBassRootChordSegment("'>cg'")).toEqual({
+      chordMml: "'>g'",
+      bassMml: "'>c'",
+    });
     expect(splitBassRootChordSegment("'>a1<a<ce'")).toEqual({
       chordMml: "'a1<ce'",
       bassMml: "'>a1'",
