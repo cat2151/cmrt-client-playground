@@ -165,11 +165,29 @@ describe("getMeasureGridCellHighlight", () => {
     ).toBe("chord");
   });
 
+  it("returns chord for measures inside the chord target range", () => {
+    expect(
+      getMeasureGridCellHighlight(2, 4, {
+        chordTarget: { track: 2, measure: 3, endMeasure: 5 },
+        bassTarget: { track: 5, measure: 7 },
+      })
+    ).toBe("chord");
+  });
+
   it("returns bass when the cell matches only the bass target", () => {
     expect(
       getMeasureGridCellHighlight(5, 7, {
         chordTarget: { track: 2, measure: 3 },
         bassTarget: { track: 5, measure: 7 },
+      })
+    ).toBe("bass");
+  });
+
+  it("returns bass for measures inside the bass target range", () => {
+    expect(
+      getMeasureGridCellHighlight(5, 8, {
+        chordTarget: { track: 2, measure: 3 },
+        bassTarget: { track: 5, measure: 7, endMeasure: 9 },
       })
     ).toBe("bass");
   });

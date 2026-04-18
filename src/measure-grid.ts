@@ -18,6 +18,7 @@ export type { MeasureGridConfig } from "./measure-grid-config.ts";
 export interface MeasureGridTarget {
   track: number;
   measure: number;
+  endMeasure?: number;
 }
 
 export interface MeasureGridHighlightTargets {
@@ -224,10 +225,8 @@ export function getMeasureGridCellHighlight(
   measure: number,
   targets: MeasureGridHighlightTargets
 ): "none" | "chord" | "bass" | "both" {
-  const isChordTarget =
-    targets.chordTarget?.track === track && targets.chordTarget?.measure === measure;
-  const isBassTarget =
-    targets.bassTarget?.track === track && targets.bassTarget?.measure === measure;
+  const isChordTarget = isMeasureGridTargetMatch(track, measure, targets.chordTarget);
+  const isBassTarget = isMeasureGridTargetMatch(track, measure, targets.bassTarget);
 
   if (isChordTarget && isBassTarget) {
     return "both";
@@ -239,6 +238,19 @@ export function getMeasureGridCellHighlight(
     return "bass";
   }
   return "none";
+}
+
+function isMeasureGridTargetMatch(
+  track: number,
+  measure: number,
+  target: MeasureGridTarget | null
+): boolean {
+  if (target === null || target.track !== track) {
+    return false;
+  }
+
+  const endMeasure = target.endMeasure ?? target.measure;
+  return target.measure <= measure && measure <= endMeasure;
 }
 
 function setMeasureGridCellHighlight(
@@ -463,6 +475,7 @@ export function createMeasureGridController(
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
     const headRow = document.createElement("tr");
     const cornerCell = document.createElement("th");
+    cornerCell.className = "measure-grid-corner-header";
     cornerCell.textContent = "track \\ meas";
     headRow.append(cornerCell);
 

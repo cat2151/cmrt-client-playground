@@ -3,7 +3,12 @@ import {
   parseAppStorageSnapshot,
   stringifyAppStorageSnapshot,
 } from "./app-storage.ts";
-import { getStartupAbRepeatRange } from "./ab-repeat.ts";
+import {
+  getStartupAbRepeatRange,
+  isSameAbRepeatRange,
+  syncDebouncedAbRepeat,
+  type StartupAbRepeatRange,
+} from "./ab-repeat.ts";
 import { syncDebouncedAutoSend } from "./auto-send.ts";
 import {
   selectAutoTargetTracks,
@@ -28,7 +33,7 @@ import {
   STARTUP_CONNECTING_OVERLAY,
   type StartupOverlayState,
 } from "./startup-overlay.ts";
-import { runPlaybackAction } from "./playback.ts";
+import { getPlaybackButtonState, runPlaybackAction } from "./playback.ts";
 
 const appShellEl = document.getElementById("app-shell") as HTMLDivElement;
 const startupOverlayEl = document.getElementById("startup-overlay") as HTMLDivElement;
@@ -277,6 +282,7 @@ async function importManagedLocalStorage(file: File): Promise<void> {
   }
 
   debouncedSendMml.cancel();
+  debouncedSyncAbRepeat.cancel();
   for (const key of APP_STORAGE_KEYS) {
     const value = parsed.snapshot.values[key];
     if (value === undefined) {
@@ -289,7 +295,7 @@ async function importManagedLocalStorage(file: File): Promise<void> {
   restoreTopLevelStateFromStorage();
   syncMeasureGridHighlightTargets();
   if (isCmrtReady) {
-    void applyStartupAbRepeat();
+    void applyAbRepeat({ source: "auto" });
   }
   appendLog("local storage を JSON import しました");
 }
@@ -357,14 +363,25 @@ function syncMeasureGridTrackHeaderActions(): void {
 function syncMeasureGridHighlightTargets(): void {
   const chordTrack = parseNonNegativeInteger(chordTrackEl.value);
   const chordMeasure = parseNonNegativeInteger(chordMeasureEl.value);
+  const chordRange = getCurrentAbRepeatRange();
   const chordTarget =
-    chordTrack === null || chordMeasure === null
+    chordTrack === null || chordRange === null
       ? null
-      : { track: chordTrack, measure: chordMeasure };
+      : {
+          track: chordTrack,
+          measure: chordRange.startMeasure,
+          endMeasure: chordRange.endMeasure,
+        };
   const bassTarget =
-    chordTarget === null
+    chordTrack === null || chordRange === null
       ? null
-      : resolveBassTargets(bassTrackEl.value, chordTarget);
+      : {
+          ...resolveBassTargets(bassTrackEl.value, {
+            track: chordTrack,
+            measure: chordRange.startMeasure,
+          }),
+          endMeasure: chordRange.endMeasure,
+        };
 
   measureGridController.setHighlightTargets({
     chordTarget,
@@ -390,6 +407,26 @@ let measureGridAutoFetchTimer: number | null = null;
 let startupConnectivityRetryTimer: number | null = null;
 let isCheckingStartupConnectivity = false;
 let isCmrtReady = false;
+let appliedAbRepeatRange: StartupAbRepeatRange | null = null;
+let isPlaying = false;
+
+function syncPlaybackButtonState(): void {
+  const buttonState = getPlaybackButtonState(isPlaying);
+  playStartButtonEl.disabled = buttonState.playDisabled;
+  playStopButtonEl.disabled = buttonState.stopDisabled;
+}
+
+function getCurrentAbRepeatRange(): StartupAbRepeatRange | null {
+  const chordMeasure = parseNonNegativeInteger(chordMeasureEl.value);
+  if (chordMeasure === null) {
+    return null;
+  }
+
+  return getStartupAbRepeatRange({
+    input: inputEl.value,
+    chordMeasure,
+  });
+}
 
 function cancelQueuedMeasureGridReload(): void {
   if (measureGridQueuedReloadTimer === null) {
@@ -507,15 +544,19 @@ async function startAppAfterCmrtReady(options: {
 }): Promise<void> {
   hideStartupOverlay();
   clearStartupConnectivityRetry();
-  await applyStartupAbRepeat();
+  await applyAbRepeat({ source: "startup", force: true });
   void autoSelectTracksFromCmrt(options);
   void reloadMeasureGridFromCmrt();
-  await runPlaybackAction({
+  const started = await runPlaybackAction({
     action: "start",
     source: "startup",
     client: dawClient,
     appendLog,
   });
+  if (started) {
+    isPlaying = true;
+    syncPlaybackButtonState();
+  }
 
   if (measureGridAutoFetchTimer !== null) {
     return;
@@ -550,27 +591,33 @@ async function ensureCmrtReady(): Promise<void> {
   }
 }
 
-async function applyStartupAbRepeat(): Promise<void> {
-  const chordMeasure = parseNonNegativeInteger(chordMeasureEl.value);
-  if (chordMeasure === null) {
+async function applyAbRepeat(options: {
+  source: "startup" | "auto";
+  force?: boolean;
+}): Promise<void> {
+  const range = getCurrentAbRepeatRange();
+  if (range === null) {
     return;
   }
 
-  const range = getStartupAbRepeatRange({
-    input: inputEl.value,
-    chordMeasure,
-  });
+  if (!options.force && isSameAbRepeatRange(appliedAbRepeatRange, range)) {
+    return;
+  }
+
   const result = await dawClient.postAbRepeat(range.startMeasure, range.endMeasure);
   if (result !== undefined) {
-    appendLog(
-      `ERROR: 起動時の A-B repeat 設定に失敗しました: ${dawClientErrorMessage(result)}`
-    );
+    const actionLabel =
+      options.source === "startup" ? "起動時の A-B repeat 設定" : "A-B repeat の同期";
+    appendLog(`ERROR: ${actionLabel}に失敗しました: ${dawClientErrorMessage(result)}`);
     return;
   }
 
-  appendLog(
-    `起動時に A-B repeat を設定: measA=${range.startMeasure}, measB=${range.endMeasure}`
-  );
+  appliedAbRepeatRange = range;
+  const successMessage =
+    options.source === "startup"
+      ? `起動時に A-B repeat を設定: measA=${range.startMeasure}, measB=${range.endMeasure}`
+      : `A-B repeat を同期: measA=${range.startMeasure}, measB=${range.endMeasure}`;
+  appendLog(successMessage);
 }
 
 async function sendCurrentMml(): Promise<void> {
@@ -619,6 +666,9 @@ const debouncedSendMml = createDebouncedCallback(() => {
 
   return sendCurrentMml();
 }, AUTO_SEND_DELAY_MS);
+const debouncedSyncAbRepeat = createDebouncedCallback(() => {
+  return applyAbRepeat({ source: "auto" });
+}, AUTO_SEND_DELAY_MS);
 
 function syncTopLevelAutoSend(): void {
   const canSendToChordTargets =
@@ -627,10 +677,20 @@ function syncTopLevelAutoSend(): void {
   syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
 }
 
+function syncTopLevelAbRepeat(): void {
+  syncDebouncedAbRepeat({
+    isCmrtReady,
+    nextRange: getCurrentAbRepeatRange(),
+    appliedRange: appliedAbRepeatRange,
+    debouncedSync: debouncedSyncAbRepeat,
+  });
+}
+
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
+syncPlaybackButtonState();
 showStartupOverlay(STARTUP_CONNECTING_OVERLAY);
 void ensureCmrtReady();
 
@@ -640,6 +700,8 @@ window.addEventListener("beforeunload", () => {
   }
   clearStartupConnectivityRetry();
   cancelQueuedMeasureGridReload();
+  debouncedSendMml.cancel();
+  debouncedSyncAbRepeat.cancel();
 });
 
 chordTrackEl.addEventListener("input", () => {
@@ -651,6 +713,7 @@ chordMeasureEl.addEventListener("input", () => {
   saveTarget(CHORD_MEASURE_STORAGE_KEY, chordMeasureEl);
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
+  syncTopLevelAbRepeat();
 });
 bassTrackEl.addEventListener("input", () => {
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
@@ -659,23 +722,37 @@ bassTrackEl.addEventListener("input", () => {
 });
 inputEl.addEventListener("input", () => {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
+  syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
+  syncTopLevelAbRepeat();
 });
-playStartButtonEl.addEventListener("click", () => {
-  void runPlaybackAction({
+playStartButtonEl.addEventListener("click", async () => {
+  const started = await runPlaybackAction({
     action: "start",
     source: "manual",
     client: dawClient,
     appendLog,
   });
+  if (!started) {
+    return;
+  }
+
+  isPlaying = true;
+  syncPlaybackButtonState();
 });
-playStopButtonEl.addEventListener("click", () => {
-  void runPlaybackAction({
+playStopButtonEl.addEventListener("click", async () => {
+  const stopped = await runPlaybackAction({
     action: "stop",
     source: "manual",
     client: dawClient,
     appendLog,
   });
+  if (!stopped) {
+    return;
+  }
+
+  isPlaying = false;
+  syncPlaybackButtonState();
 });
 localStorageExportButtonEl.addEventListener("click", () => {
   exportManagedLocalStorage();

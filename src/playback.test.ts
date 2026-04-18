@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { runPlaybackAction, type PlaybackClient } from "./playback.ts";
+import {
+  getPlaybackButtonState,
+  runPlaybackAction,
+  type PlaybackClient,
+} from "./playback.ts";
+
+describe("getPlaybackButtonState", () => {
+  it("disables only the play button while playing", () => {
+    expect(getPlaybackButtonState(true)).toEqual({
+      playDisabled: true,
+      stopDisabled: false,
+    });
+  });
+
+  it("disables only the stop button while stopped", () => {
+    expect(getPlaybackButtonState(false)).toEqual({
+      playDisabled: false,
+      stopDisabled: true,
+    });
+  });
+});
 
 describe("runPlaybackAction", () => {
   it("logs startup play success", async () => {

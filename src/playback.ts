@@ -5,8 +5,20 @@ export interface PlaybackClient {
   postPlayStop(): Promise<void | DawClientError>;
 }
 
+export interface PlaybackButtonState {
+  playDisabled: boolean;
+  stopDisabled: boolean;
+}
+
 type PlaybackAction = "start" | "stop";
 type PlaybackSource = "startup" | "manual";
+
+export function getPlaybackButtonState(isPlaying: boolean): PlaybackButtonState {
+  return {
+    playDisabled: isPlaying,
+    stopDisabled: !isPlaying,
+  };
+}
 
 export async function runPlaybackAction(options: {
   action: PlaybackAction;

@@ -7,6 +7,11 @@ export interface StartupAbRepeatRange {
   endMeasure: number;
 }
 
+export interface DebouncedAbRepeatSync {
+  schedule(): void;
+  cancel(): void;
+}
+
 function getChordMeasureSpan(input: string, startMeasure: number): number {
   const mml = chordToMml(input);
   if (mml === null) {
@@ -32,4 +37,36 @@ export function getStartupAbRepeatRange(options: {
     startMeasure: options.chordMeasure,
     endMeasure: options.chordMeasure + chordMeasureSpan - 1,
   };
+}
+
+export function isSameAbRepeatRange(
+  left: StartupAbRepeatRange | null,
+  right: StartupAbRepeatRange | null
+): boolean {
+  if (left === null || right === null) {
+    return left === right;
+  }
+
+  return (
+    left.startMeasure === right.startMeasure &&
+    left.endMeasure === right.endMeasure
+  );
+}
+
+export function syncDebouncedAbRepeat(options: {
+  isCmrtReady: boolean;
+  nextRange: StartupAbRepeatRange | null;
+  appliedRange: StartupAbRepeatRange | null;
+  debouncedSync: DebouncedAbRepeatSync;
+}): void {
+  if (
+    !options.isCmrtReady ||
+    options.nextRange === null ||
+    isSameAbRepeatRange(options.appliedRange, options.nextRange)
+  ) {
+    options.debouncedSync.cancel();
+    return;
+  }
+
+  options.debouncedSync.schedule();
 }
