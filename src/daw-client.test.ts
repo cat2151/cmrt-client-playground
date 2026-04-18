@@ -215,6 +215,26 @@ describe("DawClient.getMeasureInfo", () => {
   });
 });
 
+describe("DawClient.postAbRepeat", () => {
+  it("posts the requested measure range to /ab-repeat", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: "ok" }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.postAbRepeat(2, 5);
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/ab-repeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ measA: 2, measB: 5 }),
+    });
+    expect(result).toBeUndefined();
+  });
+});
+
 describe("DawClient.getPatches", () => {
   it("rejects mixed arrays", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({

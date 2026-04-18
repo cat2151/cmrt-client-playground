@@ -58,6 +58,11 @@ interface PostPatchRequest {
   patch: string;
 }
 
+interface PostAbRepeatRequest {
+  measA: number;
+  measB: number;
+}
+
 function normalizeBaseUrl(baseUrl: string): string | DawClientError {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   if (trimmed.length === 0) {
@@ -177,6 +182,17 @@ export class DawClient {
   ): Promise<void | DawClientError> {
     const body: PostPatchRequest = { track, patch };
     return this.postStatus("/patch", body);
+  }
+
+  async postAbRepeat(
+    startMeasure: number,
+    endMeasure: number
+  ): Promise<void | DawClientError> {
+    const body: PostAbRepeatRequest = {
+      measA: startMeasure,
+      measB: endMeasure,
+    };
+    return this.postStatus("/ab-repeat", body);
   }
 
   async getPatches(): Promise<string[] | DawClientError> {

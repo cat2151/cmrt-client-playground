@@ -1,10 +1,11 @@
 import "./style.css";
+import { getStartupAbRepeatRange } from "./ab-repeat.ts";
 import { syncDebouncedAutoSend } from "./auto-send.ts";
 import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
 } from "./auto-targets.ts";
-import { DawClient } from "./daw-client.ts";
+import { DawClient, dawClientErrorMessage } from "./daw-client.ts";
 import {
   createMeasureGridController,
   type MeasureGridConfig,
@@ -237,6 +238,33 @@ async function autoSelectTracksFromCmrt(options: {
   }
 }
 
+async function applyStartupAbRepeat(): Promise<void> {
+  const chordTrack = parsePositiveInteger(trackEl.value);
+  const chordMeasure = parsePositiveInteger(measureEl.value);
+  if (chordTrack === null || chordMeasure === null) {
+    return;
+  }
+
+  const range = getStartupAbRepeatRange({
+    input: inputEl.value,
+    chordTrack,
+    chordMeasure,
+    bassTrackValue: bassTrackEl.value,
+    bassMeasureValue: bassMeasureEl.value,
+  });
+  const result = await dawClient.postAbRepeat(range.startMeasure, range.endMeasure);
+  if (result !== undefined) {
+    appendLog(
+      `ERROR: 起動時の A-B repeat 設定に失敗しました: ${dawClientErrorMessage(result)}`
+    );
+    return;
+  }
+
+  appendLog(
+    `起動時に A-B repeat を設定: measA=${range.startMeasure}, measB=${range.endMeasure}`
+  );
+}
+
 async function sendCurrentMml(): Promise<void> {
   const chordTrack = getTargetValue(trackEl, "chord track");
   const chordMeasure = getTargetValue(measureEl, "chord meas");
@@ -282,6 +310,7 @@ loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
+void applyStartupAbRepeat();
 
 void autoSelectTracksFromCmrt({
   shouldSelectChordTrack: !hasStoredChordTrack,
