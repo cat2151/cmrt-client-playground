@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   expandMeasureGridConfigToInclude,
   getMeasureGridCellHighlight,
+  getMmlsCellValue,
   getVisibleMeasures,
   getVisibleTracks,
   isStaleMeasureGridPostSync,
@@ -173,5 +174,44 @@ describe("getMeasureGridCellHighlight", () => {
         bassTarget: null,
       })
     ).toBe("none");
+  });
+});
+
+describe("getMmlsCellValue", () => {
+  it("reads the track/measure cell directly from the /mmls snapshot", () => {
+    expect(
+      getMmlsCellValue(
+        [
+          ["meta"],
+          ["@1", "l8cde"],
+          ["@2", "l8gab"],
+        ],
+        2,
+        1
+      )
+    ).toBe("l8gab");
+  });
+
+  it("returns null when the requested track or measure is outside the snapshot", () => {
+    expect(
+      getMmlsCellValue(
+        [
+          ["meta"],
+          ["@1", "l8cde"],
+        ],
+        3,
+        0
+      )
+    ).toBeNull();
+    expect(
+      getMmlsCellValue(
+        [
+          ["meta"],
+          ["@1", "l8cde"],
+        ],
+        1,
+        5
+      )
+    ).toBeNull();
   });
 });
