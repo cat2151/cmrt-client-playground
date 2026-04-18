@@ -6,9 +6,7 @@ describe("getStartupAbRepeatRange", () => {
     expect(
       getStartupAbRepeatRange({
         input: "C / C / C / C",
-        chordTrack: 2,
         chordMeasure: 5,
-        bassTrackValue: "9",
         bassMeasureValue: "11",
       })
     ).toEqual({
@@ -21,9 +19,7 @@ describe("getStartupAbRepeatRange", () => {
     expect(
       getStartupAbRepeatRange({
         input: "",
-        chordTrack: 2,
         chordMeasure: 5,
-        bassTrackValue: "",
         bassMeasureValue: "",
       })
     ).toEqual({
@@ -34,9 +30,7 @@ describe("getStartupAbRepeatRange", () => {
     expect(
       getStartupAbRepeatRange({
         input: "not a chord",
-        chordTrack: 2,
         chordMeasure: 5,
-        bassTrackValue: "9",
         bassMeasureValue: "11",
       })
     ).toEqual({

@@ -239,17 +239,14 @@ async function autoSelectTracksFromCmrt(options: {
 }
 
 async function applyStartupAbRepeat(): Promise<void> {
-  const chordTrack = parsePositiveInteger(trackEl.value);
   const chordMeasure = parsePositiveInteger(measureEl.value);
-  if (chordTrack === null || chordMeasure === null) {
+  if (chordMeasure === null) {
     return;
   }
 
   const range = getStartupAbRepeatRange({
     input: inputEl.value,
-    chordTrack,
     chordMeasure,
-    bassTrackValue: bassTrackEl.value,
     bassMeasureValue: bassMeasureEl.value,
   });
   const result = await dawClient.postAbRepeat(range.startMeasure, range.endMeasure);
