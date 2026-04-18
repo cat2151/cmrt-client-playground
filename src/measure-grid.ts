@@ -72,6 +72,11 @@ interface CreateMeasureGridControllerOptions {
   elements: MeasureGridElements;
   dawClient: DawClient;
   appendLog: (message: string) => void;
+  getRowHeaderActions?: (track: number) => {
+    label: string;
+    ariaLabel: string;
+    onClick: () => void;
+  }[];
   autoSendDelayMs: number;
   maxAutoExpandedTrackCount: number;
   maxAutoExpandedMeasureCount: number;
@@ -363,6 +368,7 @@ export function createMeasureGridController(
     elements,
     dawClient,
     appendLog,
+    getRowHeaderActions,
     autoSendDelayMs,
     maxAutoExpandedTrackCount,
     maxAutoExpandedMeasureCount,
@@ -464,8 +470,33 @@ export function createMeasureGridController(
     for (const track of visibleTracks) {
       const row = document.createElement("tr");
       const rowHeader = document.createElement("th");
+      const rowHeaderContent = document.createElement("div");
+      const rowHeaderTitle = document.createElement("span");
       rowHeader.scope = "row";
-      rowHeader.textContent = `track ${track}`;
+      rowHeader.className = "measure-grid-row-header";
+      rowHeaderContent.className = "measure-grid-row-header__content";
+      rowHeaderTitle.className = "measure-grid-row-header__title";
+      rowHeaderTitle.textContent = `track ${track}`;
+      rowHeaderContent.append(rowHeaderTitle);
+
+      const rowHeaderActions = getRowHeaderActions?.(track) ?? [];
+      if (rowHeaderActions.length > 0) {
+        const actionsEl = document.createElement("div");
+        actionsEl.className = "measure-grid-row-header__actions";
+        for (const action of rowHeaderActions) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "measure-grid-row-header__action";
+          button.textContent = action.label;
+          button.setAttribute("aria-label", action.ariaLabel);
+          button.title = action.ariaLabel;
+          button.addEventListener("click", action.onClick);
+          actionsEl.append(button);
+        }
+        rowHeaderContent.append(actionsEl);
+      }
+
+      rowHeader.append(rowHeaderContent);
       row.append(rowHeader);
 
       for (const measure of visibleMeasures) {

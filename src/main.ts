@@ -50,14 +50,8 @@ const localStorageImportFileEl = document.getElementById(
   "local-storage-import-file"
 ) as HTMLInputElement;
 const chordTrackEl = document.getElementById("track") as HTMLInputElement;
-const chordTrackRandomPatchButtonEl = document.getElementById(
-  "track-random-patch"
-) as HTMLButtonElement;
 const chordMeasureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
-const bassTrackRandomPatchButtonEl = document.getElementById(
-  "bass-track-random-patch"
-) as HTMLButtonElement;
 const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
@@ -319,11 +313,42 @@ const measureGridController = createMeasureGridController({
   },
   dawClient,
   appendLog,
+  getRowHeaderActions: (track) => {
+    const actions: {
+      label: string;
+      ariaLabel: string;
+      onClick: () => void;
+    }[] = [];
+    if (parsePositiveInteger(chordTrackEl.value) === track) {
+      actions.push({
+        label: "chord r",
+        ariaLabel: `chord track ${track} にランダム音色を設定`,
+        onClick: () => {
+          void postRandomPatchForTarget(chordTrackEl, "chord");
+        },
+      });
+    }
+    if (parsePositiveInteger(bassTrackEl.value) === track) {
+      actions.push({
+        label: "bass r",
+        ariaLabel: `bass track ${track} にランダム音色を設定`,
+        onClick: () => {
+          void postRandomPatchForTarget(bassTrackEl, "bass");
+        },
+      });
+    }
+    return actions;
+  },
   autoSendDelayMs: AUTO_SEND_DELAY_MS,
   maxAutoExpandedTrackCount: MAX_AUTO_EXPANDED_TRACK_COUNT,
   maxAutoExpandedMeasureCount: MAX_AUTO_EXPANDED_MEASURE_COUNT,
   initialConfig: DEFAULT_MEASURE_GRID_CONFIG,
 });
+
+function syncMeasureGridTrackHeaderActions(): void {
+  measureGridController.render();
+  syncMeasureGridHighlightTargets();
+}
 
 function syncMeasureGridHighlightTargets(): void {
   const chordTrack = parsePositiveInteger(chordTrackEl.value);
@@ -468,7 +493,7 @@ async function autoSelectTracksFromCmrt(options: {
     appendLog(
       `起動時に track を自動選択: ${selectedTargets.join(", ")}`
     );
-    syncMeasureGridHighlightTargets();
+    syncMeasureGridTrackHeaderActions();
   }
 }
 
@@ -611,7 +636,7 @@ window.addEventListener("beforeunload", () => {
 
 chordTrackEl.addEventListener("input", () => {
   saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
-  syncMeasureGridHighlightTargets();
+  syncMeasureGridTrackHeaderActions();
   syncTopLevelAutoSend();
 });
 chordMeasureEl.addEventListener("input", () => {
@@ -621,14 +646,8 @@ chordMeasureEl.addEventListener("input", () => {
 });
 bassTrackEl.addEventListener("input", () => {
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
-  syncMeasureGridHighlightTargets();
+  syncMeasureGridTrackHeaderActions();
   syncTopLevelAutoSend();
-});
-chordTrackRandomPatchButtonEl.addEventListener("click", () => {
-  void postRandomPatchForTarget(chordTrackEl, "chord");
-});
-bassTrackRandomPatchButtonEl.addEventListener("click", () => {
-  void postRandomPatchForTarget(bassTrackEl, "bass");
 });
 inputEl.addEventListener("input", () => {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
