@@ -310,7 +310,9 @@ loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
-void applyStartupAbRepeat();
+void applyStartupAbRepeat().catch((error: unknown) => {
+  appendLog(`ERROR: 起動時の A-B repeat 設定で予期しない例外が発生しました: ${String(error)}`);
+});
 
 void autoSelectTracksFromCmrt({
   shouldSelectChordTrack: !hasStoredChordTrack,
