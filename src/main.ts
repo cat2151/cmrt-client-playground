@@ -446,9 +446,12 @@ void autoSelectTracksFromCmrt({
   shouldSelectBassTrack: !hasStoredBassTrack,
 });
 void reloadMeasureGridFromCmrt();
-window.setInterval(() => {
+const measureGridAutoFetchTimer = window.setInterval(() => {
   void reloadMeasureGridFromCmrt();
 }, GRID_AUTO_FETCH_INTERVAL_MS);
+window.addEventListener("beforeunload", () => {
+  window.clearInterval(measureGridAutoFetchTimer);
+});
 
 trackEl.addEventListener("input", () => {
   saveTarget(TRACK_STORAGE_KEY, trackEl);
