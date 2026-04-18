@@ -18,7 +18,6 @@ describe("sendMml", () => {
       chordTrack: 2,
       chordMeasure: 5,
       bassTrackValue: "9",
-      bassMeasureValue: "11",
       client,
       appendLog: (message) => logs.push(message),
       reflectValue: (track, measure, mml) => reflected.push({ track, measure, mml }),
@@ -50,7 +49,6 @@ describe("sendMml", () => {
       chordTrack: 2,
       chordMeasure: 5,
       bassTrackValue: "9",
-      bassMeasureValue: "11",
       client,
       appendLog: (message) => logs.push(message),
       reflectValue: () => {

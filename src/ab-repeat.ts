@@ -1,6 +1,6 @@
 import { chordToMml } from "./chord-to-mml.ts";
 import { planMeasureInputs } from "./measure-input.ts";
-import { parsePositiveInteger, sanitizeMmlForPost } from "./post-config.ts";
+import { sanitizeMmlForPost } from "./post-config.ts";
 
 export interface StartupAbRepeatRange {
   startMeasure: number;
@@ -25,17 +25,11 @@ function getChordMeasureSpan(input: string, startMeasure: number): number {
 export function getStartupAbRepeatRange(options: {
   input: string;
   chordMeasure: number;
-  bassMeasureValue: string;
 }): StartupAbRepeatRange {
-  const bassMeasure =
-    parsePositiveInteger(options.bassMeasureValue) ?? options.chordMeasure;
   const chordMeasureSpan = getChordMeasureSpan(options.input, options.chordMeasure);
 
   return {
-    startMeasure: Math.min(options.chordMeasure, bassMeasure),
-    endMeasure: Math.max(
-      options.chordMeasure + chordMeasureSpan - 1,
-      bassMeasure + chordMeasureSpan - 1
-    ),
+    startMeasure: options.chordMeasure,
+    endMeasure: options.chordMeasure + chordMeasureSpan - 1,
   };
 }

@@ -76,21 +76,21 @@ describe("sanitizeMmlForPost", () => {
 });
 
 describe("resolveBassTargets", () => {
-  it("falls back to chord targets when bass targets are blank or invalid", () => {
-    expect(resolveBassTargets("", "", { track: 3, measure: 7 })).toEqual({
+  it("falls back to chord targets when the bass track is blank or invalid", () => {
+    expect(resolveBassTargets("", { track: 3, measure: 7 })).toEqual({
       track: 3,
       measure: 7,
     });
-    expect(resolveBassTargets("0", "abc", { track: 3, measure: 7 })).toEqual({
+    expect(resolveBassTargets("0", { track: 3, measure: 7 })).toEqual({
       track: 3,
       measure: 7,
     });
   });
 
-  it("uses explicit bass targets when valid", () => {
-    expect(resolveBassTargets("5", "9", { track: 3, measure: 7 })).toEqual({
+  it("uses only the explicit bass track and always shares the chord measure", () => {
+    expect(resolveBassTargets("5", { track: 3, measure: 7 })).toEqual({
       track: 5,
-      measure: 9,
+      measure: 7,
     });
   });
 });

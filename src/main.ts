@@ -23,7 +23,6 @@ const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const trackEl = document.getElementById("track") as HTMLInputElement;
 const measureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
-const bassMeasureEl = document.getElementById("bass-measure") as HTMLInputElement;
 const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
@@ -34,7 +33,6 @@ const logEl = document.getElementById("log") as HTMLDivElement;
 const TRACK_STORAGE_KEY = "cmrt-client-playground.track";
 const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
-const BASS_MEASURE_STORAGE_KEY = "cmrt-client-playground.bass-measure";
 const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
@@ -125,7 +123,7 @@ function syncMeasureGridHighlightTargets(): void {
   const bassTarget =
     chordTarget === null
       ? null
-      : resolveBassTargets(bassTrackEl.value, bassMeasureEl.value, chordTarget);
+      : resolveBassTargets(bassTrackEl.value, chordTarget);
 
   measureGridController.setHighlightTargets({
     chordTarget,
@@ -247,7 +245,6 @@ async function applyStartupAbRepeat(): Promise<void> {
   const range = getStartupAbRepeatRange({
     input: inputEl.value,
     chordMeasure,
-    bassMeasureValue: bassMeasureEl.value,
   });
   const result = await dawClient.postAbRepeat(range.startMeasure, range.endMeasure);
   if (result !== undefined) {
@@ -273,7 +270,6 @@ async function sendCurrentMml(): Promise<void> {
     chordTrack,
     chordMeasure,
     bassTrackValue: bassTrackEl.value,
-    bassMeasureValue: bassMeasureEl.value,
     client: dawClient,
     appendLog,
     reflectValue: (track, measure, mml) =>
@@ -303,7 +299,6 @@ const hasStoredBassTrack = loadStoredTarget(
   DEFAULT_TRACK,
   bassTrackEl
 );
-loadStoredTarget(BASS_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, bassMeasureEl);
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
@@ -336,11 +331,6 @@ measureEl.addEventListener("input", () => {
 });
 bassTrackEl.addEventListener("input", () => {
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
-  syncMeasureGridHighlightTargets();
-  syncTopLevelAutoSend();
-});
-bassMeasureEl.addEventListener("input", () => {
-  saveTarget(BASS_MEASURE_STORAGE_KEY, bassMeasureEl);
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
 });

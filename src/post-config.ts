@@ -41,12 +41,11 @@ export interface SanitizedMml {
 
 export function resolveBassTargets(
   trackValue: string,
-  measureValue: string,
   chordTargets: PostTargets
 ): PostTargets {
   return {
     track: parsePositiveInteger(trackValue) ?? chordTargets.track,
-    measure: parsePositiveInteger(measureValue) ?? chordTargets.measure,
+    measure: chordTargets.measure,
   };
 }
 
