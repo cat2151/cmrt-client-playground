@@ -26,6 +26,11 @@
       <h1>cmrt-client-playground</h1>
       <label for="input">コード入力（例: C Am G7 / 改行可）</label>
       <textarea id="input" placeholder="C Am G7"></textarea>
+      <div class="editor-toolbar">
+        <button id="local-storage-export" type="button">JSON export</button>
+        <button id="local-storage-import" type="button">JSON import</button>
+        <input id="local-storage-import-file" type="file" accept="application/json" hidden />
+      </div>
       <div class="target-grid">
         <div>
           <label for="track">chord track</label>

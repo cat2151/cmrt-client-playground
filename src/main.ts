@@ -1,4 +1,8 @@
 import "./style.css";
+import {
+  parseAppStorageSnapshot,
+  stringifyAppStorageSnapshot,
+} from "./app-storage.ts";
 import { getStartupAbRepeatRange } from "./ab-repeat.ts";
 import { syncDebouncedAutoSend } from "./auto-send.ts";
 import {
@@ -36,11 +40,20 @@ const startupOverlayDetailEl = document.getElementById(
   "startup-overlay-detail"
 ) as HTMLPreElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
-const trackEl = document.getElementById("track") as HTMLInputElement;
-const trackRandomPatchButtonEl = document.getElementById(
+const localStorageExportButtonEl = document.getElementById(
+  "local-storage-export"
+) as HTMLButtonElement;
+const localStorageImportButtonEl = document.getElementById(
+  "local-storage-import"
+) as HTMLButtonElement;
+const localStorageImportFileEl = document.getElementById(
+  "local-storage-import-file"
+) as HTMLInputElement;
+const chordTrackEl = document.getElementById("track") as HTMLInputElement;
+const chordTrackRandomPatchButtonEl = document.getElementById(
   "track-random-patch"
 ) as HTMLButtonElement;
-const measureEl = document.getElementById("measure") as HTMLInputElement;
+const chordMeasureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
 const bassTrackRandomPatchButtonEl = document.getElementById(
   "bass-track-random-patch"
@@ -52,9 +65,17 @@ const gridMeasureCountEl = document.getElementById("grid-measure-count") as HTML
 const measureGridHeadEl = document.getElementById("measure-grid-head") as HTMLTableSectionElement;
 const measureGridBodyEl = document.getElementById("measure-grid-body") as HTMLTableSectionElement;
 const logEl = document.getElementById("log") as HTMLDivElement;
-const TRACK_STORAGE_KEY = "cmrt-client-playground.track";
-const MEASURE_STORAGE_KEY = "cmrt-client-playground.measure";
+const INPUT_STORAGE_KEY = "cmrt-client-playground.input";
+const CHORD_TRACK_STORAGE_KEY = "cmrt-client-playground.chord.track";
+const CHORD_MEASURE_STORAGE_KEY = "cmrt-client-playground.chord.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
+const APP_STORAGE_EXPORT_FILENAME = "cmrt-client-playground-local-storage.json";
+const APP_STORAGE_KEYS = [
+  INPUT_STORAGE_KEY,
+  CHORD_TRACK_STORAGE_KEY,
+  CHORD_MEASURE_STORAGE_KEY,
+  BASS_TRACK_STORAGE_KEY,
+] as const;
 const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
@@ -63,6 +84,7 @@ const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
 const STARTUP_CONNECTIVITY_RETRY_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
+const reportedLocalStorageErrors = new Set<string>();
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
   trackStart: 1,
@@ -76,6 +98,45 @@ function appendLog(message: string): void {
   const timestamp = new Date().toISOString();
   logEl.textContent += `[${timestamp}] ${message}\n`;
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+function reportLocalStorageError(action: string, error: unknown): void {
+  const message = `ERROR: local storage の${action}に失敗しました: ${String(error)}`;
+  if (reportedLocalStorageErrors.has(message)) {
+    return;
+  }
+
+  reportedLocalStorageErrors.add(message);
+  appendLog(message);
+}
+
+function readLocalStorageItem(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch (error: unknown) {
+    reportLocalStorageError(`読み取り(${key})`, error);
+    return null;
+  }
+}
+
+function writeLocalStorageItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error: unknown) {
+    reportLocalStorageError(`保存(${key})`, error);
+    return false;
+  }
+}
+
+function removeLocalStorageItem(key: string): boolean {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch (error: unknown) {
+    reportLocalStorageError(`削除(${key})`, error);
+    return false;
+  }
 }
 
 function setStartupOverlayState(state: StartupOverlayState): void {
@@ -103,15 +164,20 @@ function loadStoredTarget(
   fallback: number,
   element: HTMLInputElement
 ): boolean {
-  try {
-    const storedValue = localStorage.getItem(key);
-    const parsed = storedValue === null ? null : parsePositiveInteger(storedValue);
-    element.value = String(parsed ?? fallback);
-    return parsed !== null;
-  } catch {
-    element.value = String(fallback);
-    return false;
-  }
+  const storedValue = readLocalStorageItem(key);
+  const parsed = storedValue === null ? null : parsePositiveInteger(storedValue);
+  element.value = String(parsed ?? fallback);
+  return parsed !== null;
+}
+
+function loadStoredText(
+  key: string,
+  fallback: string,
+  element: HTMLInputElement | HTMLTextAreaElement
+): boolean {
+  const storedValue = readLocalStorageItem(key);
+  element.value = storedValue ?? fallback;
+  return storedValue !== null;
 }
 
 function saveTarget(key: string, element: HTMLInputElement): void {
@@ -120,11 +186,114 @@ function saveTarget(key: string, element: HTMLInputElement): void {
     return;
   }
 
-  try {
-    localStorage.setItem(key, String(parsed));
-  } catch {
-    // Ignore storage errors and keep the UI usable.
+  writeLocalStorageItem(key, String(parsed));
+}
+
+function saveText(key: string, value: string): void {
+  writeLocalStorageItem(key, value);
+}
+
+function persistTopLevelStateToStorage(): void {
+  saveText(INPUT_STORAGE_KEY, inputEl.value);
+  saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
+  saveTarget(CHORD_MEASURE_STORAGE_KEY, chordMeasureEl);
+  saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
+}
+
+function restoreTopLevelStateFromStorage(): {
+  hasStoredChordTrack: boolean;
+  hasStoredBassTrack: boolean;
+} {
+  loadStoredText(INPUT_STORAGE_KEY, "", inputEl);
+  const hasStoredChordTrack = loadStoredTarget(CHORD_TRACK_STORAGE_KEY, DEFAULT_TRACK, chordTrackEl);
+  loadStoredTarget(CHORD_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, chordMeasureEl);
+  const hasStoredBassTrack = loadStoredTarget(BASS_TRACK_STORAGE_KEY, DEFAULT_TRACK, bassTrackEl);
+
+  return { hasStoredChordTrack, hasStoredBassTrack };
+}
+
+function collectManagedLocalStorageValues(): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const key of APP_STORAGE_KEYS) {
+    const value = readLocalStorageItem(key);
+    if (value !== null) {
+      values[key] = value;
+    }
   }
+  return values;
+}
+
+function downloadTextFile(filename: string, content: string): void {
+  const blob = new Blob([content], { type: "application/json" });
+  const downloadUrl = URL.createObjectURL(blob);
+  const linkEl = document.createElement("a");
+  linkEl.href = downloadUrl;
+  linkEl.download = filename;
+  document.body.append(linkEl);
+  linkEl.click();
+  linkEl.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+function exportManagedLocalStorage(): void {
+  persistTopLevelStateToStorage();
+  const json = stringifyAppStorageSnapshot(collectManagedLocalStorageValues());
+  downloadTextFile(APP_STORAGE_EXPORT_FILENAME, json);
+  appendLog("local storage を JSON export しました");
+}
+
+function validateImportedStorageValues(values: Record<string, string>): string | null {
+  for (const key of [
+    CHORD_TRACK_STORAGE_KEY,
+    CHORD_MEASURE_STORAGE_KEY,
+    BASS_TRACK_STORAGE_KEY,
+  ]) {
+    const value = values[key];
+    if (value !== undefined && parsePositiveInteger(value) === null) {
+      return `${key} には 1 以上の整数を指定してください`;
+    }
+  }
+
+  return null;
+}
+
+async function importManagedLocalStorage(file: File): Promise<void> {
+  let raw: string;
+  try {
+    raw = await file.text();
+  } catch (error: unknown) {
+    appendLog(`ERROR: local storage JSON import の読み込みに失敗しました: ${String(error)}`);
+    return;
+  }
+
+  const parsed = parseAppStorageSnapshot(raw, APP_STORAGE_KEYS);
+  if (!parsed.ok) {
+    appendLog(`ERROR: local storage JSON import に失敗しました: ${parsed.message}`);
+    return;
+  }
+
+  const validationError = validateImportedStorageValues(parsed.snapshot.values);
+  if (validationError !== null) {
+    appendLog(`ERROR: local storage JSON import に失敗しました: ${validationError}`);
+    return;
+  }
+
+  debouncedSendMml.cancel();
+  for (const key of APP_STORAGE_KEYS) {
+    const value = parsed.snapshot.values[key];
+    if (value === undefined) {
+      removeLocalStorageItem(key);
+      continue;
+    }
+    writeLocalStorageItem(key, value);
+  }
+
+  restoreTopLevelStateFromStorage();
+  syncMeasureGridHighlightTargets();
+  if (isCmrtReady) {
+    void applyStartupAbRepeat();
+  }
+  appendLog("local storage を JSON import しました");
 }
 
 function getTargetValue(
@@ -157,8 +326,8 @@ const measureGridController = createMeasureGridController({
 });
 
 function syncMeasureGridHighlightTargets(): void {
-  const chordTrack = parsePositiveInteger(trackEl.value);
-  const chordMeasure = parsePositiveInteger(measureEl.value);
+  const chordTrack = parsePositiveInteger(chordTrackEl.value);
+  const chordMeasure = parsePositiveInteger(chordMeasureEl.value);
   const chordTarget =
     chordTrack === null || chordMeasure === null
       ? null
@@ -276,8 +445,8 @@ async function autoSelectTracksFromCmrt(options: {
   const selection = selectAutoTargetTracks(candidates);
 
   if (options.shouldSelectChordTrack && selection.chordTrack !== null) {
-    trackEl.value = String(selection.chordTrack);
-    saveTarget(TRACK_STORAGE_KEY, trackEl);
+    chordTrackEl.value = String(selection.chordTrack);
+    saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
   }
 
   if (options.shouldSelectBassTrack && selection.bassTrack !== null) {
@@ -349,7 +518,7 @@ async function ensureCmrtReady(): Promise<void> {
 }
 
 async function applyStartupAbRepeat(): Promise<void> {
-  const chordMeasure = parsePositiveInteger(measureEl.value);
+  const chordMeasure = parsePositiveInteger(chordMeasureEl.value);
   if (chordMeasure === null) {
     return;
   }
@@ -372,8 +541,8 @@ async function applyStartupAbRepeat(): Promise<void> {
 }
 
 async function sendCurrentMml(): Promise<void> {
-  const chordTrack = getTargetValue(trackEl, "chord track");
-  const chordMeasure = getTargetValue(measureEl, "chord meas");
+  const chordTrack = getTargetValue(chordTrackEl, "chord track");
+  const chordMeasure = getTargetValue(chordMeasureEl, "chord meas");
   if (chordTrack === null || chordMeasure === null) {
     return;
   }
@@ -420,18 +589,12 @@ const debouncedSendMml = createDebouncedCallback(() => {
 
 function syncTopLevelAutoSend(): void {
   const canSendToChordTargets =
-    parsePositiveInteger(trackEl.value) !== null &&
-    parsePositiveInteger(measureEl.value) !== null;
+    parsePositiveInteger(chordTrackEl.value) !== null &&
+    parsePositiveInteger(chordMeasureEl.value) !== null;
   syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
 }
 
-const hasStoredChordTrack = loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
-loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
-const hasStoredBassTrack = loadStoredTarget(
-  BASS_TRACK_STORAGE_KEY,
-  DEFAULT_TRACK,
-  bassTrackEl
-);
+const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
 measureGridController.syncControls();
 measureGridController.render();
 syncMeasureGridHighlightTargets();
@@ -446,13 +609,13 @@ window.addEventListener("beforeunload", () => {
   cancelQueuedMeasureGridReload();
 });
 
-trackEl.addEventListener("input", () => {
-  saveTarget(TRACK_STORAGE_KEY, trackEl);
+chordTrackEl.addEventListener("input", () => {
+  saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
 });
-measureEl.addEventListener("input", () => {
-  saveTarget(MEASURE_STORAGE_KEY, measureEl);
+chordMeasureEl.addEventListener("input", () => {
+  saveTarget(CHORD_MEASURE_STORAGE_KEY, chordMeasureEl);
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
 });
@@ -461,14 +624,30 @@ bassTrackEl.addEventListener("input", () => {
   syncMeasureGridHighlightTargets();
   syncTopLevelAutoSend();
 });
-trackRandomPatchButtonEl.addEventListener("click", () => {
-  void postRandomPatchForTarget(trackEl, "chord");
+chordTrackRandomPatchButtonEl.addEventListener("click", () => {
+  void postRandomPatchForTarget(chordTrackEl, "chord");
 });
 bassTrackRandomPatchButtonEl.addEventListener("click", () => {
   void postRandomPatchForTarget(bassTrackEl, "bass");
 });
 inputEl.addEventListener("input", () => {
+  saveText(INPUT_STORAGE_KEY, inputEl.value);
   syncTopLevelAutoSend();
+});
+localStorageExportButtonEl.addEventListener("click", () => {
+  exportManagedLocalStorage();
+});
+localStorageImportButtonEl.addEventListener("click", () => {
+  localStorageImportFileEl.click();
+});
+localStorageImportFileEl.addEventListener("change", () => {
+  const file = localStorageImportFileEl.files?.item(0);
+  localStorageImportFileEl.value = "";
+  if (file === null || file === undefined) {
+    return;
+  }
+
+  void importManagedLocalStorage(file);
 });
 for (const element of [
   gridTrackStartEl,
