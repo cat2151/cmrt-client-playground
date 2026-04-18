@@ -66,6 +66,10 @@ import {
   playToneChordMml,
   stopToneChordPlayback,
 } from "./tone-chord-playback.ts";
+import {
+  syncToneChordPreviewAfterInputChange,
+  type ToneChordPreviewInputSource,
+} from "./tone-chord-preview-sync.ts";
 import { getPlaybackButtonState, runPlaybackAction } from "./playback.ts";
 
 const appShellEl = document.getElementById("app-shell") as HTMLDivElement;
@@ -368,14 +372,14 @@ function isCurrentInputFromSelectedTemplate(): boolean {
   return templateInput !== null && inputEl.value === templateInput;
 }
 
-function applySelectedChordTemplateToInput(): void {
+function applySelectedChordTemplateToInput(source: ToneChordPreviewInputSource): void {
   const templateInput = getSelectedChordTemplateInput();
   if (templateInput === null) {
     return;
   }
 
   inputEl.value = templateInput;
-  syncChordInputStateAfterChange();
+  syncChordInputStateAfterChange(source);
 }
 
 async function loadChordTemplates(): Promise<void> {
@@ -1273,7 +1277,9 @@ function syncTopLevelAbRepeat(): void {
   });
 }
 
-function syncChordInputStateAfterChange(): void {
+function syncChordInputStateAfterChange(
+  source: ToneChordPreviewInputSource = "other"
+): void {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
   renderChordHistorySelect();
   renderChordTemplateSelect();
@@ -1281,7 +1287,14 @@ function syncChordInputStateAfterChange(): void {
   syncTopLevelAutoSend();
   syncTopLevelAbRepeat();
   void syncPianoRollPreview();
-  void syncToneChordPreview();
+  syncToneChordPreviewAfterInputChange({
+    isToneFallbackMode,
+    source,
+    cancelPreview: cancelToneChordPreview,
+    syncPreview: () => {
+      void syncToneChordPreview();
+    },
+  });
 }
 
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
@@ -1329,7 +1342,7 @@ bassTrackEl.addEventListener("input", () => {
 });
 inputEl.addEventListener("input", () => {
   selectedChordTemplateDegrees = null;
-  syncChordInputStateAfterChange();
+  syncChordInputStateAfterChange("textarea");
 });
 chordHistorySelectEl.addEventListener("change", () => {
   const selectedChord = chordHistorySelectEl.value;
@@ -1344,7 +1357,7 @@ chordHistorySelectEl.addEventListener("change", () => {
   inputEl.focus();
 });
 chordTemplateKeySelectEl.addEventListener("change", () => {
-  applySelectedChordTemplateToInput();
+  applySelectedChordTemplateToInput("template");
 });
 chordTemplateSelectEl.addEventListener("change", () => {
   const selectedTemplate = chordTemplateSelectEl.value;
@@ -1353,8 +1366,8 @@ chordTemplateSelectEl.addEventListener("change", () => {
   }
 
   selectedChordTemplateDegrees = selectedTemplate;
-  applySelectedChordTemplateToInput();
-  inputEl.focus();
+  applySelectedChordTemplateToInput("template");
+  chordTemplateSelectEl.focus();
 });
 playStartButtonEl.addEventListener("click", async () => {
   cancelToneChordPreview();
