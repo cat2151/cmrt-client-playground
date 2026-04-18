@@ -23,7 +23,6 @@ export interface SendMmlOptions {
   chordTrack: number;
   chordMeasure: number;
   bassTrackValue: string;
-  bassMeasureValue: string;
   client: SendMmlClient;
   appendLog(message: string): void;
   reflectValue(track: number, measure: number, mml: string): void;
@@ -79,7 +78,6 @@ export async function sendMml(options: SendMmlOptions): Promise<void> {
 
   const bassTargets = resolveBassTargets(
     options.bassTrackValue,
-    options.bassMeasureValue,
     {
       track: options.chordTrack,
       measure: options.chordMeasure,
@@ -175,13 +173,13 @@ export async function sendMml(options: SendMmlOptions): Promise<void> {
     if (splitMml.bassMml !== "") {
       const targetBassMeasure = bassTargets.measure + index;
 
-      appendMeasureLog(
-        options.appendLog,
-        isMultipleMeasures,
-        index,
-        preparedMeasures.length,
-        `${splitMml.bassMml} を bass meas ${targetBassMeasure} に割り当て`
-      );
+        appendMeasureLog(
+          options.appendLog,
+          isMultipleMeasures,
+          index,
+          preparedMeasures.length,
+          `${splitMml.bassMml} を bass track の measure ${targetBassMeasure} に割り当て`
+        );
       appendMeasureLog(
         options.appendLog,
         isMultipleMeasures,
