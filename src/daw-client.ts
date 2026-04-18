@@ -193,6 +193,14 @@ export class DawClient {
     return this.postStatus("/patch/random", body);
   }
 
+  async postPlayStart(): Promise<void | DawClientError> {
+    return this.postEmptyStatus("/play/start");
+  }
+
+  async postPlayStop(): Promise<void | DawClientError> {
+    return this.postEmptyStatus("/play/stop");
+  }
+
   async postAbRepeat(
     startMeasure: number,
     endMeasure: number
@@ -339,29 +347,44 @@ export class DawClient {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      let statusResponse: StatusResponse;
-      try {
-        statusResponse = (await response.json()) as StatusResponse;
-      } catch (e) {
-        return { kind: "invalidResponse", message: String(e) };
-      }
-      if (!response.ok) {
-        return {
-          kind: "http",
-          status: response.status,
-          body: JSON.stringify(statusResponse),
-        };
-      }
-      if (statusResponse.status === "ok") {
-        return;
-      }
-      return {
-        kind: "invalidResponse",
-        message: `unexpected status response (http ${response.status}): ${statusResponse.status}`,
-      };
+      return this.readStatusResponse(response);
     } catch (e) {
       return { kind: "transport", message: String(e) };
     }
+  }
+
+  private async postEmptyStatus(path: string): Promise<void | DawClientError> {
+    try {
+      const response = await fetch(this.endpointUrl(path), {
+        method: "POST",
+      });
+      return this.readStatusResponse(response);
+    } catch (e) {
+      return { kind: "transport", message: String(e) };
+    }
+  }
+
+  private async readStatusResponse(response: Response): Promise<void | DawClientError> {
+    let statusResponse: StatusResponse;
+    try {
+      statusResponse = (await response.json()) as StatusResponse;
+    } catch (e) {
+      return { kind: "invalidResponse", message: String(e) };
+    }
+    if (!response.ok) {
+      return {
+        kind: "http",
+        status: response.status,
+        body: JSON.stringify(statusResponse),
+      };
+    }
+    if (statusResponse.status === "ok") {
+      return;
+    }
+    return {
+      kind: "invalidResponse",
+      message: `unexpected status response (http ${response.status}): ${statusResponse.status}`,
+    };
   }
 
   private endpointUrl(path: string): string {

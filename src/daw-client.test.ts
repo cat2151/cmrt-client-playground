@@ -255,6 +255,40 @@ describe("DawClient.postRandomPatch", () => {
   });
 });
 
+describe("DawClient.playback", () => {
+  it("posts to /play/start without a request body", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: "ok" }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.postPlayStart();
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/play/start`, {
+      method: "POST",
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it("posts to /play/stop without a request body", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: "ok" }),
+    } as Response);
+
+    const client = DawClient.localDefault();
+    const result = await client.postPlayStop();
+
+    expect(fetchMock).toHaveBeenCalledWith(`${DEFAULT_BASE_URL}/play/stop`, {
+      method: "POST",
+    });
+    expect(result).toBeUndefined();
+  });
+});
+
 describe("DawClient.getPatches", () => {
   it("rejects mixed arrays", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({

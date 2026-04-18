@@ -28,6 +28,7 @@ import {
   STARTUP_CONNECTING_OVERLAY,
   type StartupOverlayState,
 } from "./startup-overlay.ts";
+import { runPlaybackAction } from "./playback.ts";
 
 const appShellEl = document.getElementById("app-shell") as HTMLDivElement;
 const startupOverlayEl = document.getElementById("startup-overlay") as HTMLDivElement;
@@ -40,6 +41,8 @@ const startupOverlayMessageEl = document.getElementById(
 const startupOverlayDetailEl = document.getElementById(
   "startup-overlay-detail"
 ) as HTMLPreElement;
+const playStartButtonEl = document.getElementById("play-start") as HTMLButtonElement;
+const playStopButtonEl = document.getElementById("play-stop") as HTMLButtonElement;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const localStorageExportButtonEl = document.getElementById(
   "local-storage-export"
@@ -504,11 +507,15 @@ async function startAppAfterCmrtReady(options: {
 }): Promise<void> {
   hideStartupOverlay();
   clearStartupConnectivityRetry();
-  void applyStartupAbRepeat().catch((error: unknown) => {
-    appendLog(`ERROR: 起動時の A-B repeat 設定で予期しない例外が発生しました: ${String(error)}`);
-  });
+  await applyStartupAbRepeat();
   void autoSelectTracksFromCmrt(options);
   void reloadMeasureGridFromCmrt();
+  await runPlaybackAction({
+    action: "start",
+    source: "startup",
+    client: dawClient,
+    appendLog,
+  });
 
   if (measureGridAutoFetchTimer !== null) {
     return;
@@ -653,6 +660,22 @@ bassTrackEl.addEventListener("input", () => {
 inputEl.addEventListener("input", () => {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
   syncTopLevelAutoSend();
+});
+playStartButtonEl.addEventListener("click", () => {
+  void runPlaybackAction({
+    action: "start",
+    source: "manual",
+    client: dawClient,
+    appendLog,
+  });
+});
+playStopButtonEl.addEventListener("click", () => {
+  void runPlaybackAction({
+    action: "stop",
+    source: "manual",
+    client: dawClient,
+    appendLog,
+  });
 });
 localStorageExportButtonEl.addEventListener("click", () => {
   exportManagedLocalStorage();

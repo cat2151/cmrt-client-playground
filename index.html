@@ -23,12 +23,33 @@
       </div>
     </div>
       <div id="app-shell" inert aria-busy="true">
-        <h1>cmrt-client-playground</h1>
-        <label for="input">コード入力（例: C Am G7 / 改行可）</label>
-        <textarea id="input" placeholder="C Am G7"></textarea>
-        <section class="measure-grid-panel" aria-labelledby="measure-grid-heading">
+        <div class="app-toolbar">
+          <div class="playback-controls" role="group" aria-label="playback controls">
+            <button
+              id="play-start"
+              class="transport-button transport-button--play"
+              type="button"
+              aria-label="play"
+            >
+              <svg class="transport-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 6.5v11c0 .78.86 1.25 1.52.83l8-5.5a1 1 0 0 0 0-1.66l-8-5.5A1 1 0 0 0 8 6.5Z" />
+              </svg>
+            </button>
+            <button
+              id="play-stop"
+              class="transport-button transport-button--stop"
+              type="button"
+              aria-label="stop"
+            >
+              <svg class="transport-button__icon" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="1.5" ry="1.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <textarea id="input" placeholder="C Am G7" aria-label="コード入力"></textarea>
+        <section class="measure-grid-panel" aria-label="measure grid">
           <div class="measure-grid-toolbar">
-            <h2 id="measure-grid-heading">cmrt meas grid</h2>
             <details class="measure-grid-settings">
               <summary>設定</summary>
               <div class="measure-grid-settings__panel">
@@ -88,7 +109,7 @@
       </details>
       <p class="footer">
         GitHub:
-        <a href="https://github.com/cat2151/cmrt-client-playground">cat2151/cmrt-client-playground</a>
+        <a href="https://github.com/cat2151/cmrt-client-playground">repository</a>
       </p>
     </div>
     <script type="module" src="/src/main.ts"></script>
