@@ -180,8 +180,8 @@ export function createMeasureGridController(
     ReturnType<typeof createDebouncedCallback>
   >();
   let measureGridConfig = { ...initialConfig };
-  let lastLoadedSnapshotEtag: string | null = null;
-  let lastLoadErrorMessage: string | null = null;
+  let loadedSnapshotEtag: string | null = null;
+  let previousLoadErrorMessage: string | null = null;
   let measureGridHighlightTargets: MeasureGridHighlightTargets = {
     chordTarget: null,
     bassTarget: null,
@@ -340,7 +340,7 @@ export function createMeasureGridController(
 
   function applyConfig(config: MeasureGridConfig): void {
     measureGridConfig = config;
-    lastLoadedSnapshotEtag = null;
+    loadedSnapshotEtag = null;
     syncControls();
     render();
   }
@@ -426,7 +426,7 @@ export function createMeasureGridController(
   async function loadFromCmrt(): Promise<void> {
     const visibleTracks = getVisibleTracks(measureGridConfig);
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
-    const shouldShowLoading = lastLoadedSnapshotEtag === null;
+    const shouldShowLoading = loadedSnapshotEtag === null;
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
@@ -436,13 +436,13 @@ export function createMeasureGridController(
       }
     }
 
-    const snapshot = await dawClient.getMmls(lastLoadedSnapshotEtag ?? undefined);
+    const snapshot = await dawClient.getMmls(loadedSnapshotEtag ?? undefined);
     if (typeof snapshot === "object" && snapshot !== null && "kind" in snapshot) {
       const errorMessage = dawClientErrorMessage(snapshot);
-      if (lastLoadErrorMessage !== errorMessage) {
+      if (previousLoadErrorMessage !== errorMessage) {
         appendLog(`ERROR: grid GET に失敗しました: ${errorMessage}`);
       }
-      lastLoadErrorMessage = errorMessage;
+      previousLoadErrorMessage = errorMessage;
       for (const track of visibleTracks) {
         for (const measure of visibleMeasures) {
           const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
@@ -454,12 +454,12 @@ export function createMeasureGridController(
       return;
     }
 
-    lastLoadErrorMessage = null;
+    previousLoadErrorMessage = null;
     if (snapshot === null) {
       return;
     }
 
-    lastLoadedSnapshotEtag = snapshot.etag;
+    loadedSnapshotEtag = snapshot.etag;
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const key = getMeasureGridCellKey(track, measure);
