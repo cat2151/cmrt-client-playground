@@ -1,4 +1,5 @@
 import "./style.css";
+import { syncDebouncedAutoSend } from "./auto-send.ts";
 import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
@@ -22,7 +23,6 @@ const trackEl = document.getElementById("track") as HTMLInputElement;
 const measureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
 const bassMeasureEl = document.getElementById("bass-measure") as HTMLInputElement;
-const sendBtn = document.getElementById("send") as HTMLButtonElement;
 const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
@@ -264,6 +264,13 @@ const debouncedSendMml = createDebouncedCallback(() => {
   return sendCurrentMml();
 }, AUTO_SEND_DELAY_MS);
 
+function syncTopLevelAutoSend(): void {
+  const canSendToChordTargets =
+    parsePositiveInteger(trackEl.value) !== null &&
+    parsePositiveInteger(measureEl.value) !== null;
+  syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
+}
+
 const hasStoredChordTrack = loadStoredTarget(TRACK_STORAGE_KEY, DEFAULT_TRACK, trackEl);
 loadStoredTarget(MEASURE_STORAGE_KEY, DEFAULT_MEASURE, measureEl);
 const hasStoredBassTrack = loadStoredTarget(
@@ -292,30 +299,25 @@ window.addEventListener("beforeunload", () => {
 trackEl.addEventListener("input", () => {
   saveTarget(TRACK_STORAGE_KEY, trackEl);
   syncMeasureGridHighlightTargets();
+  syncTopLevelAutoSend();
 });
 measureEl.addEventListener("input", () => {
   saveTarget(MEASURE_STORAGE_KEY, measureEl);
   syncMeasureGridHighlightTargets();
+  syncTopLevelAutoSend();
 });
 bassTrackEl.addEventListener("input", () => {
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
   syncMeasureGridHighlightTargets();
+  syncTopLevelAutoSend();
 });
 bassMeasureEl.addEventListener("input", () => {
   saveTarget(BASS_MEASURE_STORAGE_KEY, bassMeasureEl);
   syncMeasureGridHighlightTargets();
+  syncTopLevelAutoSend();
 });
 inputEl.addEventListener("input", () => {
-  if (!inputEl.value.trim()) {
-    debouncedSendMml.cancel();
-    return;
-  }
-
-  debouncedSendMml.schedule();
-});
-sendBtn.addEventListener("click", () => {
-  debouncedSendMml.cancel();
-  void sendCurrentMml();
+  syncTopLevelAutoSend();
 });
 for (const element of [
   gridTrackStartEl,
