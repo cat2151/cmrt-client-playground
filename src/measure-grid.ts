@@ -77,6 +77,7 @@ interface CreateMeasureGridControllerOptions {
     label: string;
     ariaLabel: string;
     onClick: () => void;
+    disabled?: boolean;
   }[];
   autoSendDelayMs: number;
   maxAutoExpandedTrackCount: number;
@@ -511,7 +512,10 @@ export function createMeasureGridController(
           button.textContent = action.label;
           button.setAttribute("aria-label", action.ariaLabel);
           button.title = action.ariaLabel;
-          button.addEventListener("click", action.onClick);
+          button.disabled = action.disabled ?? false;
+          if (!button.disabled) {
+            button.addEventListener("click", action.onClick);
+          }
           actionsEl.append(button);
         }
         rowHeaderContent.append(actionsEl);

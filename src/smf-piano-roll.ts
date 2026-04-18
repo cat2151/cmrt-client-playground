@@ -30,6 +30,11 @@ export interface PianoRollDisplayData {
   notes: PianoRollDisplayNote[];
 }
 
+export interface PianoRollPitchRowMetrics {
+  topPx: number;
+  heightPx: number;
+}
+
 export function getPianoRollNoteNumbers(data: Pick<PianoRollData, "notes">): number[] {
   return data.notes.map((note) => note.pitch);
 }
@@ -45,6 +50,35 @@ export function formatPianoRollDebugSummary(options: {
   return `piano roll preview: mml=${options.mml} note numbers=${formatPianoRollNoteNumbers(
     getPianoRollNoteNumbers(options.data)
   )}`;
+}
+
+export function getPianoRollPitchRowBoundaries(options: {
+  minPitch: number;
+  maxPitch: number;
+  contentHeightPx: number;
+}): number[] {
+  const pitchSpan = Math.max(1, options.maxPitch - options.minPitch + 1);
+  return Array.from({ length: pitchSpan + 1 }, (_, index) =>
+    Math.round((index * options.contentHeightPx) / pitchSpan)
+  );
+}
+
+export function getPianoRollPitchRowMetrics(options: {
+  minPitch: number;
+  maxPitch: number;
+  pitch: number;
+  contentHeightPx: number;
+  gridLineWidthPx?: number;
+}): PianoRollPitchRowMetrics {
+  const gridLineWidthPx = Math.max(0, options.gridLineWidthPx ?? 1);
+  const boundaries = getPianoRollPitchRowBoundaries(options);
+  const rowIndex = options.maxPitch - options.pitch;
+  const rowTopPx = boundaries[rowIndex];
+  const rowBottomPx = boundaries[rowIndex + 1];
+  return {
+    topPx: rowTopPx + gridLineWidthPx,
+    heightPx: Math.max(rowBottomPx - rowTopPx - gridLineWidthPx, 1),
+  };
 }
 
 function isIntervalActive(

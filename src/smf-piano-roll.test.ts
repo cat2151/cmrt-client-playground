@@ -4,6 +4,8 @@ import {
   buildPianoRollDisplayData,
   formatPianoRollDebugSummary,
   formatPianoRollNoteNumbers,
+  getPianoRollPitchRowBoundaries,
+  getPianoRollPitchRowMetrics,
   getPianoRollNoteNumbers,
   parseSmfToPianoRollData,
 } from "./smf-piano-roll.ts";
@@ -69,6 +71,38 @@ describe("parseSmfToPianoRollData", () => {
 
   it("formats note number arrays exactly as the log displays them", () => {
     expect(formatPianoRollNoteNumbers([60, 65, 65, 69])).toBe("[60, 65, 65, 69]");
+  });
+
+  it("offsets note rows below the horizontal grid line", () => {
+    expect(
+      getPianoRollPitchRowBoundaries({
+        minPitch: 60,
+        maxPitch: 66,
+        contentHeightPx: 192,
+      })
+    ).toEqual([0, 27, 55, 82, 110, 137, 165, 192]);
+    expect(
+      getPianoRollPitchRowMetrics({
+        minPitch: 60,
+        maxPitch: 62,
+        pitch: 62,
+        contentHeightPx: 192,
+      })
+    ).toEqual({
+      topPx: 1,
+      heightPx: 63,
+    });
+    expect(
+      getPianoRollPitchRowMetrics({
+        minPitch: 60,
+        maxPitch: 62,
+        pitch: 60,
+        contentHeightPx: 192,
+      })
+    ).toEqual({
+      topPx: 129,
+      heightPx: 63,
+    });
   });
 
   it("marks chord and bass overlaps with a dedicated role", () => {

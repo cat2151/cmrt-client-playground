@@ -90,21 +90,21 @@ describe("tokenizeChordProgression", () => {
 describe("renderChordProgressionHtml", () => {
   it("renders highlighted token spans for overlay display", () => {
     expect(renderChordProgressionHtml("Key=C\nIM7-bVII")).toBe(
-      '<span class="chord-input-editor__token" style="color:#a59f85">Key=</span>' +
-        '<span class="chord-input-editor__token" style="color:#e6db74">C</span>' +
-        '<span class="chord-input-editor__token" style="color:#a59f85">\n</span>' +
-        '<span class="chord-input-editor__token" style="color:#f8f8f2">I</span>' +
-        '<span class="chord-input-editor__token" style="color:#fd971f">M7</span>' +
-        '<span class="chord-input-editor__token" style="color:#a59f85">-</span>' +
-        '<span class="chord-input-editor__token" style="color:#f8f8f2">bVII</span>'
+      '<span class="chord-input-editor__token chord-input-editor__token--key-prefix" style="color:#a59f85">Key=</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--key-root" style="color:#e6db74">C</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--annotation" style="color:#a59f85">\n</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--roman" style="color:#f8f8f2">I</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--suffix" style="color:#ffb454">M7</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--separator" style="color:#a59f85">-</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--roman" style="color:#f8f8f2">bVII</span>'
     );
   });
 
   it("escapes html and preserves a trailing newline for the overlay", () => {
     expect(renderChordProgressionHtml("I<sus>\n")).toBe(
-      '<span class="chord-input-editor__token" style="color:#f8f8f2">I</span>' +
-        '<span class="chord-input-editor__token" style="color:#fd971f">&lt;sus&gt;</span>' +
-        '<span class="chord-input-editor__token" style="color:#a59f85">\n</span>&#8203;'
+      '<span class="chord-input-editor__token chord-input-editor__token--roman" style="color:#f8f8f2">I</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--suffix" style="color:#ffb454">&lt;sus&gt;</span>' +
+        '<span class="chord-input-editor__token chord-input-editor__token--annotation" style="color:#a59f85">\n</span>&#8203;'
     );
   });
 });

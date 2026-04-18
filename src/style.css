@@ -116,12 +116,14 @@ textarea {
   min-height: 5rem;
   box-sizing: border-box;
   padding: 0.45rem 0.55rem;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 0.95rem;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 1.05rem;
+  font-weight: 500;
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  font-variant-ligatures: none;
 }
 
 .chord-input-editor__overlay {
@@ -162,6 +164,16 @@ textarea {
   white-space: pre-wrap;
 }
 
+.chord-input-editor__token--suffix {
+  font-weight: 400;
+}
+
+.chord-input-editor__token--annotation,
+.chord-input-editor__token--key-prefix,
+.chord-input-editor__token--separator {
+  font-weight: 350;
+}
+
 .piano-roll-panel {
   margin-bottom: 1rem;
   padding: 0.5rem;
@@ -181,13 +193,20 @@ textarea {
   border: 1px solid #cbd5e1;
   border-radius: 0.5rem;
   background-color: #ffffff;
-  background-image:
-    linear-gradient(to bottom, rgb(148 163 184 / 0.28) 1px, transparent 1px),
-    linear-gradient(to right, rgb(148 163 184 / 0.22) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgb(148 163 184 / 0.22) 1px, transparent 1px);
 }
 
 .piano-roll__content--empty {
   background-image: none;
+}
+
+.piano-roll__row-line {
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: rgb(148 163 184 / 0.28);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .piano-roll__note {
@@ -195,6 +214,7 @@ textarea {
   border-radius: 999px;
   background: linear-gradient(180deg, #60a5fa, #2563eb);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4);
+  z-index: 1;
 }
 
 .piano-roll__note--chord {
@@ -544,6 +564,11 @@ button.transport-button:disabled:active {
   line-height: 1.2;
 }
 
+.measure-grid-row-header__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .measure-grid-table td {
   min-width: 0;
   overflow: visible;
@@ -667,24 +692,24 @@ a {
 
 @media (prefers-color-scheme: dark) {
   body {
-    color: #e5e7eb;
-    background: #111827;
+    color: #f8f8f2;
+    background: #272822;
   }
 
   .startup-overlay {
-    background: rgb(2 6 23 / 0.72);
+    background: rgb(39 40 34 / 0.82);
   }
 
   .startup-overlay__dialog {
-    background: #111827;
-    border-color: #4b5563;
-    box-shadow: 0 24px 48px rgb(2 6 23 / 0.45);
+    background: #272822;
+    border-color: #75715e;
+    box-shadow: 0 24px 48px rgb(0 0 0 / 0.42);
   }
 
   .startup-overlay__detail {
-    background: #0f172a;
-    border-color: #334155;
-    color: #e5e7eb;
+    background: #3e3d32;
+    border-color: #75715e;
+    color: #f8f8f2;
   }
 
   textarea,
@@ -694,8 +719,8 @@ a {
   .measure-grid-cell-preview,
   .measure-grid-cell {
     color: inherit;
-    background: #1f2937;
-    border: 1px solid #4b5563;
+    background: #3e3d32;
+    border: 1px solid #75715e;
   }
 
   .chord-input-editor {
@@ -723,17 +748,17 @@ a {
   }
 
   button.transport-button {
-    color: #e5e7eb;
-    background: linear-gradient(180deg, #334155, #1e293b);
-    border-color: #475569;
+    color: #f8f8f2;
+    background: linear-gradient(180deg, #49483e, #3e3d32);
+    border-color: #75715e;
   }
 
   .transport-button--play {
-    color: #dcfce7;
+    color: #a6e22e;
   }
 
   .transport-button--stop {
-    color: #cbd5e1;
+    color: #f8f8f2;
   }
 
   .transport-button--play .transport-button__icon path {
@@ -741,15 +766,15 @@ a {
   }
 
   .error-balloon {
-    color: #fee2e2;
-    background: #7f1d1d;
-    border-color: #f87171;
+    color: #f8f8f2;
+    background: #5b1f3a;
+    border-color: #f92672;
     box-shadow: 0 8px 20px rgb(0 0 0 / 0.35);
   }
 
   .error-balloon::after {
-    background: #7f1d1d;
-    border-color: #f87171;
+    background: #5b1f3a;
+    border-color: #f92672;
   }
 
   .measure-grid-settings summary,
@@ -757,104 +782,106 @@ a {
   .measure-grid-settings__panel,
   .piano-roll-panel {
     color: inherit;
-    background: #1f2937;
-    border-color: #4b5563;
+    background: #3e3d32;
+    border-color: #75715e;
   }
 
   .measure-grid-settings[open] summary,
   .log-toggle[aria-expanded="true"] {
-    background: #111827;
+    background: #49483e;
   }
 
   .chord-toolbar-select {
-    color: #e5e7eb;
-    background: #1f2937;
-    border-color: #4b5563;
+    color: #f8f8f2;
+    background: #3e3d32;
+    border-color: #75715e;
   }
 
   .chord-toolbar-select:disabled {
-    color: #9ca3af;
-    background: #111827;
+    color: #a59f85;
+    background: #272822;
   }
 
   .chord-toolbar-select option {
-    color: #e5e7eb;
-    background: #1f2937;
+    color: #f8f8f2;
+    background: #3e3d32;
   }
 
   .measure-grid-table th,
   .measure-grid-table td {
-    border-color: #4b5563;
+    border-color: #75715e;
   }
 
   .piano-roll__content {
-    background-color: #111827;
-    border-color: #4b5563;
-    background-image:
-      linear-gradient(to bottom, rgb(148 163 184 / 0.24) 1px, transparent 1px),
-      linear-gradient(to right, rgb(148 163 184 / 0.18) 1px, transparent 1px);
+    background-color: #272822;
+    border-color: #75715e;
+    background-image: linear-gradient(to right, rgb(117 113 94 / 0.35) 1px, transparent 1px);
   }
 
   .piano-roll__content--empty {
     background-image: none;
   }
 
+  .piano-roll__row-line {
+    background: rgb(117 113 94 / 0.5);
+  }
+
   .piano-roll__note {
-    background: linear-gradient(180deg, #93c5fd, #3b82f6);
+    background: linear-gradient(180deg, #8be9fd, #66d9ef);
   }
 
   .piano-roll__note--chord {
-    background: linear-gradient(180deg, #93c5fd, #3b82f6);
+    background: linear-gradient(180deg, #8be9fd, #66d9ef);
   }
 
   .piano-roll__note--bass {
-    background: linear-gradient(180deg, #86efac, #22c55e);
+    background: linear-gradient(180deg, #c4f07a, #a6e22e);
   }
 
   .piano-roll__note--both {
-    background: linear-gradient(180deg, #d8b4fe, #a855f7);
+    background: linear-gradient(180deg, #ceb5ff, #ae81ff);
   }
 
   .measure-grid-table th {
-    background: #111827;
+    background: #49483e;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell,
   .measure-grid-cell-shell.measure-grid-cell--syncing .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--syncing .measure-grid-cell {
-    background: #1e3a8a;
+    background: #49483e;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--error .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--error .measure-grid-cell {
-    background: #7f1d1d;
-    border-color: #f87171;
+    background: #5b1f3a;
+    border-color: #f92672;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--target-chord .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--target-chord .measure-grid-cell {
-    box-shadow: inset 0 0 0 2px #60a5fa;
+    box-shadow: inset 0 0 0 2px #66d9ef;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--target-bass .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--target-bass .measure-grid-cell {
-    box-shadow: inset 0 0 0 2px #4ade80;
+    box-shadow: inset 0 0 0 2px #a6e22e;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--target-both .measure-grid-cell-preview,
   .measure-grid-cell-shell.measure-grid-cell--target-both .measure-grid-cell {
     box-shadow:
-      inset 0 0 0 2px #60a5fa,
-      inset 0 0 0 4px #4ade80;
+      inset 0 0 0 2px #66d9ef,
+      inset 0 0 0 4px #a6e22e;
   }
 
   #log {
-    background: #1f2937;
-    border-color: #4b5563;
+    background: #3e3d32;
+    border-color: #75715e;
   }
 
   a {
-    color: #93c5fd;
+    color: #66d9ef;
   }
 }

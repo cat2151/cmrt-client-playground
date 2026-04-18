@@ -175,7 +175,7 @@ function getTokenColor(kind: ChordProgressionTokenKind): string {
     case "roman":
       return "#f8f8f2";
     case "suffix":
-      return "#fd971f";
+      return "#ffb454";
     case "key-root":
       return "#e6db74";
     case "key-prefix":
@@ -185,6 +185,10 @@ function getTokenColor(kind: ChordProgressionTokenKind): string {
     default:
       return "#a59f85";
   }
+}
+
+function getTokenClassName(kind: ChordProgressionTokenKind): string {
+  return `chord-input-editor__token chord-input-editor__token--${kind}`;
 }
 
 function escapeHtml(value: string): string {
@@ -202,7 +206,7 @@ export function renderChordProgressionHtml(value: string): string {
   const rendered = tokenizeChordProgression(value)
     .map(
       (token) =>
-        `<span class="chord-input-editor__token" style="color:${getTokenColor(token.kind)}">${escapeHtml(token.text)}</span>`
+        `<span class="${getTokenClassName(token.kind)}" style="color:${getTokenColor(token.kind)}">${escapeHtml(token.text)}</span>`
     )
     .join("");
   return value.endsWith("\n") ? `${rendered}&#8203;` : rendered;

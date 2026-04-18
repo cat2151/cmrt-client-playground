@@ -52,6 +52,8 @@ import {
   SMF_EXPORT_FILENAME,
 } from "./smf-export.ts";
 import {
+  getPianoRollPitchRowBoundaries,
+  getPianoRollPitchRowMetrics,
   type PianoRollDisplayData,
 } from "./smf-piano-roll.ts";
 import {
@@ -617,6 +619,7 @@ const measureGridController = createMeasureGridController({
       label: string;
       ariaLabel: string;
       onClick: () => void;
+      disabled?: boolean;
     }[] = [];
     if (parseNonNegativeInteger(chordTrackEl.value) === track) {
       actions.push({
@@ -625,6 +628,7 @@ const measureGridController = createMeasureGridController({
         onClick: () => {
           void postRandomPatchForTarget(chordTrackEl, "chord");
         },
+        disabled: isToneFallbackMode,
       });
     }
     if (parseNonNegativeInteger(bassTrackEl.value) === track) {
@@ -634,6 +638,7 @@ const measureGridController = createMeasureGridController({
         onClick: () => {
           void postRandomPatchForTarget(bassTrackEl, "bass");
         },
+        disabled: isToneFallbackMode,
       });
     }
     return actions;
@@ -716,6 +721,7 @@ function syncPlaybackButtonState(): void {
 function setPlaybackBackend(nextBackend: "cmrt" | "tone" | null): void {
   currentPlaybackBackend = nextBackend;
   syncPlaybackButtonState();
+  syncMeasureGridTrackHeaderActions();
 }
 
 function hideChordAnalysisErrorBalloon(): void {
@@ -789,26 +795,38 @@ function renderPianoRollPreview(options: {
   const pianoRollData = options.data;
   const totalTicks = Math.max(1, pianoRollData.totalTicks);
   const quarterNoteCount = Math.max(1, totalTicks / pianoRollData.division);
-  const pitchSpan = Math.max(1, pianoRollData.maxPitch - pianoRollData.minPitch + 1);
+  const rowBoundaries = getPianoRollPitchRowBoundaries({
+    minPitch: pianoRollData.minPitch,
+    maxPitch: pianoRollData.maxPitch,
+    contentHeightPx: PIANO_ROLL_HEIGHT_PX,
+  });
   pianoRollContentEl.replaceChildren();
   pianoRollContentEl.classList.remove("piano-roll__content--empty");
-  pianoRollContentEl.style.backgroundSize = `${100 / quarterNoteCount}% ${
-    PIANO_ROLL_HEIGHT_PX / pitchSpan
-  }px`;
+  pianoRollContentEl.style.backgroundSize = `${100 / quarterNoteCount}% 100%`;
+
+  for (const lineTopPx of rowBoundaries.slice(0, -1)) {
+    const lineEl = document.createElement("div");
+    lineEl.className = "piano-roll__row-line";
+    lineEl.style.top = `${lineTopPx}px`;
+    pianoRollContentEl.append(lineEl);
+  }
 
   for (const note of pianoRollData.notes) {
     const noteEl = document.createElement("div");
     noteEl.className = `piano-roll__note piano-roll__note--${note.role}`;
-    const noteHeight = Math.max(PIANO_ROLL_HEIGHT_PX / pitchSpan - 1, 1);
+    const rowMetrics = getPianoRollPitchRowMetrics({
+      minPitch: pianoRollData.minPitch,
+      maxPitch: pianoRollData.maxPitch,
+      pitch: note.pitch,
+      contentHeightPx: PIANO_ROLL_HEIGHT_PX,
+    });
     noteEl.style.left = `${(note.startTick / totalTicks) * 100}%`;
-    noteEl.style.top = `${
-      ((pianoRollData.maxPitch - note.pitch) / pitchSpan) * PIANO_ROLL_HEIGHT_PX
-    }px`;
+    noteEl.style.top = `${rowMetrics.topPx}px`;
     noteEl.style.width = `${Math.max(
       PIANO_ROLL_MIN_NOTE_WIDTH_PERCENT,
       ((note.endTick - note.startTick) / totalTicks) * 100
     )}%`;
-    noteEl.style.height = `${noteHeight}px`;
+    noteEl.style.height = `${rowMetrics.heightPx}px`;
     pianoRollContentEl.append(noteEl);
   }
 
@@ -995,6 +1013,7 @@ function activateToneFallbackMode(error: ReturnType<typeof getStartupErrorOverla
   }
 
   isToneFallbackMode = true;
+  syncMeasureGridTrackHeaderActions();
   appendLog(
     `cmrt疎通確認エラーのため Tone.js chord fallback で継続します: ${error.title}`
   );
@@ -1057,6 +1076,7 @@ async function startAppAfterCmrtReady(options: {
   autoStartPlayback: boolean;
 }): Promise<void> {
   isToneFallbackMode = false;
+  syncMeasureGridTrackHeaderActions();
   hideStartupOverlay();
   clearStartupConnectivityRetry();
   await applyAbRepeat({ source: "startup", force: true });
