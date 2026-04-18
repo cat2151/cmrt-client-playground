@@ -81,13 +81,17 @@ describe("resolveBassTargets", () => {
       track: 3,
       measure: 7,
     });
-    expect(resolveBassTargets("0", { track: 3, measure: 7 })).toEqual({
+    expect(resolveBassTargets("-1", { track: 3, measure: 7 })).toEqual({
       track: 3,
       measure: 7,
     });
   });
 
-  it("uses only the explicit bass track and always shares the chord measure", () => {
+  it("uses only the explicit bass track, including conductor track 0, and always shares the chord measure", () => {
+    expect(resolveBassTargets("0", { track: 3, measure: 7 })).toEqual({
+      track: 0,
+      measure: 7,
+    });
     expect(resolveBassTargets("5", { track: 3, measure: 7 })).toEqual({
       track: 5,
       measure: 7,

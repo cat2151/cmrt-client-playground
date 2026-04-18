@@ -17,6 +17,7 @@ import {
 import {
   DEFAULT_MEASURE,
   DEFAULT_TRACK,
+  parseNonNegativeInteger,
   parsePositiveInteger,
   resolveBassTargets,
 } from "./post-config.ts";
@@ -81,7 +82,7 @@ const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
 const reportedLocalStorageErrors = new Set<string>();
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
-  trackStart: 1,
+  trackStart: 0,
   trackCount: 4,
   measureStart: 0,
   measureCount: 8,
@@ -159,7 +160,7 @@ function loadStoredTarget(
   element: HTMLInputElement
 ): boolean {
   const storedValue = readLocalStorageItem(key);
-  const parsed = storedValue === null ? null : parsePositiveInteger(storedValue);
+  const parsed = storedValue === null ? null : parseNonNegativeInteger(storedValue);
   element.value = String(parsed ?? fallback);
   return parsed !== null;
 }
@@ -175,7 +176,7 @@ function loadStoredText(
 }
 
 function saveTarget(key: string, element: HTMLInputElement): void {
-  const parsed = parsePositiveInteger(element.value);
+  const parsed = parseNonNegativeInteger(element.value);
   if (parsed === null) {
     return;
   }
@@ -243,8 +244,8 @@ function validateImportedStorageValues(values: Record<string, string>): string |
     BASS_TRACK_STORAGE_KEY,
   ]) {
     const value = values[key];
-    if (value !== undefined && parsePositiveInteger(value) === null) {
-      return `${key} には 1 以上の整数を指定してください`;
+    if (value !== undefined && parseNonNegativeInteger(value) === null) {
+      return `${key} には 0 以上の整数を指定してください`;
     }
   }
 
@@ -294,9 +295,9 @@ function getTargetValue(
   element: HTMLInputElement,
   name: string
 ): number | null {
-  const parsed = parsePositiveInteger(element.value);
+  const parsed = parseNonNegativeInteger(element.value);
   if (parsed === null) {
-    appendLog(`ERROR: ${name} には 1 以上の整数を指定してください`);
+    appendLog(`ERROR: ${name} には 0 以上の整数を指定してください`);
     return null;
   }
   return parsed;
@@ -319,7 +320,7 @@ const measureGridController = createMeasureGridController({
       ariaLabel: string;
       onClick: () => void;
     }[] = [];
-    if (parsePositiveInteger(chordTrackEl.value) === track) {
+    if (parseNonNegativeInteger(chordTrackEl.value) === track) {
       actions.push({
         label: "chord r",
         ariaLabel: `chord track ${track} にランダム音色を設定`,
@@ -328,7 +329,7 @@ const measureGridController = createMeasureGridController({
         },
       });
     }
-    if (parsePositiveInteger(bassTrackEl.value) === track) {
+    if (parseNonNegativeInteger(bassTrackEl.value) === track) {
       actions.push({
         label: "bass r",
         ariaLabel: `bass track ${track} にランダム音色を設定`,
@@ -351,8 +352,8 @@ function syncMeasureGridTrackHeaderActions(): void {
 }
 
 function syncMeasureGridHighlightTargets(): void {
-  const chordTrack = parsePositiveInteger(chordTrackEl.value);
-  const chordMeasure = parsePositiveInteger(chordMeasureEl.value);
+  const chordTrack = parseNonNegativeInteger(chordTrackEl.value);
+  const chordMeasure = parseNonNegativeInteger(chordMeasureEl.value);
   const chordTarget =
     chordTrack === null || chordMeasure === null
       ? null
@@ -543,7 +544,7 @@ async function ensureCmrtReady(): Promise<void> {
 }
 
 async function applyStartupAbRepeat(): Promise<void> {
-  const chordMeasure = parsePositiveInteger(chordMeasureEl.value);
+  const chordMeasure = parseNonNegativeInteger(chordMeasureEl.value);
   if (chordMeasure === null) {
     return;
   }
@@ -614,8 +615,8 @@ const debouncedSendMml = createDebouncedCallback(() => {
 
 function syncTopLevelAutoSend(): void {
   const canSendToChordTargets =
-    parsePositiveInteger(chordTrackEl.value) !== null &&
-    parsePositiveInteger(chordMeasureEl.value) !== null;
+    parseNonNegativeInteger(chordTrackEl.value) !== null &&
+    parseNonNegativeInteger(chordMeasureEl.value) !== null;
   syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
 }
 

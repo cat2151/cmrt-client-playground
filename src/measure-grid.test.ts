@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   expandMeasureGridConfigToInclude,
+  formatMeasureGridMeasureLabel,
+  formatMeasureGridTrackLabel,
   getMeasureGridArrowNavigationTarget,
   getMeasureGridCaretPosition,
   getMeasureGridCellHighlight,
@@ -23,6 +25,17 @@ describe("getVisibleTracks", () => {
 
     expect(getVisibleTracks(config)).toEqual([3, 4, 5, 6]);
   });
+
+  it("includes conductor track 0 when the grid starts there", () => {
+    const config: MeasureGridConfig = {
+      trackStart: 0,
+      trackCount: 4,
+      measureStart: 0,
+      measureCount: 8,
+    };
+
+    expect(getVisibleTracks(config)).toEqual([0, 1, 2, 3]);
+  });
 });
 
 describe("getVisibleMeasures", () => {
@@ -35,6 +48,15 @@ describe("getVisibleMeasures", () => {
     };
 
     expect(getVisibleMeasures(config)).toEqual([2, 3, 4]);
+  });
+});
+
+describe("measure-grid labels", () => {
+  it("shows special labels for conductor and init cells", () => {
+    expect(formatMeasureGridTrackLabel(0)).toBe("Conductor");
+    expect(formatMeasureGridTrackLabel(2)).toBe("track 2");
+    expect(formatMeasureGridMeasureLabel(0)).toBe("init");
+    expect(formatMeasureGridMeasureLabel(3)).toBe("3");
   });
 });
 

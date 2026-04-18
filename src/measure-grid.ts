@@ -353,6 +353,14 @@ export function getMmlsCellValue(
   return typeof value === "string" ? value : null;
 }
 
+export function formatMeasureGridTrackLabel(track: number): string {
+  return track === 0 ? "Conductor" : `track ${track}`;
+}
+
+export function formatMeasureGridMeasureLabel(measure: number): string {
+  return measure === 0 ? "init" : String(measure);
+}
+
 export function createMeasureGridController(
   options: CreateMeasureGridControllerOptions
 ): {
@@ -405,9 +413,9 @@ export function createMeasureGridController(
   }
 
   function readConfigFromControls(): MeasureGridConfig | null {
-    const trackStart = parsePositiveInteger(elements.trackStartEl.value);
+    const trackStart = parseNonNegativeInteger(elements.trackStartEl.value);
     if (trackStart === null) {
-      appendLog("ERROR: grid track start には 1 以上の整数を指定してください");
+      appendLog("ERROR: grid track start には 0 以上の整数を指定してください");
       return null;
     }
 
@@ -461,7 +469,7 @@ export function createMeasureGridController(
     for (const measure of visibleMeasures) {
       const measureCell = document.createElement("th");
       measureCell.scope = "col";
-      measureCell.textContent = String(measure);
+      measureCell.textContent = formatMeasureGridMeasureLabel(measure);
       headRow.append(measureCell);
     }
 
@@ -476,7 +484,7 @@ export function createMeasureGridController(
       rowHeader.className = "measure-grid-row-header";
       rowHeaderContent.className = "measure-grid-row-header__content";
       rowHeaderTitle.className = "measure-grid-row-header__title";
-      rowHeaderTitle.textContent = `track ${track}`;
+      rowHeaderTitle.textContent = formatMeasureGridTrackLabel(track);
       rowHeaderContent.append(rowHeaderTitle);
 
       const rowHeaderActions = getRowHeaderActions?.(track) ?? [];
@@ -550,7 +558,10 @@ export function createMeasureGridController(
         input.className = "measure-grid-cell";
         input.type = "text";
         input.dataset.dirty = "false";
-        input.setAttribute("aria-label", `track ${track} measure ${measure}`);
+        input.setAttribute(
+          "aria-label",
+          `${formatMeasureGridTrackLabel(track)} ${formatMeasureGridMeasureLabel(measure)}`
+        );
         setMeasureGridCellValue(renderedCell, measureGridValues.get(key) ?? "");
         setMeasureGridCellHighlight(
           shellEl,

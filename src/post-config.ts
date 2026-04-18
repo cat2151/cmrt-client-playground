@@ -44,7 +44,7 @@ export function resolveBassTargets(
   chordTargets: PostTargets
 ): PostTargets {
   return {
-    track: parsePositiveInteger(trackValue) ?? chordTargets.track,
+    track: parseNonNegativeInteger(trackValue) ?? chordTargets.track,
     measure: chordTargets.measure,
   };
 }
