@@ -49,7 +49,7 @@ const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
 const AUTO_TARGET_TRACK_SCAN_END = 16;
 const GRID_GET_CONCURRENCY = 8;
-const GRID_RELOAD_INTERVAL_MS = 1000;
+const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
 
@@ -448,7 +448,7 @@ void autoSelectTracksFromCmrt({
 void reloadMeasureGridFromCmrt();
 window.setInterval(() => {
   void reloadMeasureGridFromCmrt();
-}, GRID_RELOAD_INTERVAL_MS);
+}, GRID_AUTO_FETCH_INTERVAL_MS);
 
 trackEl.addEventListener("input", () => {
   saveTarget(TRACK_STORAGE_KEY, trackEl);

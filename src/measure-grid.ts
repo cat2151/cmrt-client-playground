@@ -180,7 +180,7 @@ export function createMeasureGridController(
     ReturnType<typeof createDebouncedCallback>
   >();
   let measureGridConfig = { ...initialConfig };
-  let loadedSnapshotEtag: string | null = null;
+  let currentSnapshotEtag: string | null = null;
   let previousLoadErrorMessage: string | null = null;
   let measureGridHighlightTargets: MeasureGridHighlightTargets = {
     chordTarget: null,
@@ -340,7 +340,7 @@ export function createMeasureGridController(
 
   function applyConfig(config: MeasureGridConfig): void {
     measureGridConfig = config;
-    loadedSnapshotEtag = null;
+    currentSnapshotEtag = null;
     syncControls();
     render();
   }
@@ -426,7 +426,7 @@ export function createMeasureGridController(
   async function loadFromCmrt(): Promise<void> {
     const visibleTracks = getVisibleTracks(measureGridConfig);
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
-    const shouldShowLoading = loadedSnapshotEtag === null;
+    const shouldShowLoading = currentSnapshotEtag === null;
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
@@ -436,7 +436,7 @@ export function createMeasureGridController(
       }
     }
 
-    const snapshot = await dawClient.getMmls(loadedSnapshotEtag ?? undefined);
+    const snapshot = await dawClient.getMmls(currentSnapshotEtag ?? undefined);
     if (typeof snapshot === "object" && snapshot !== null && "kind" in snapshot) {
       const errorMessage = dawClientErrorMessage(snapshot);
       if (previousLoadErrorMessage !== errorMessage) {
@@ -459,7 +459,7 @@ export function createMeasureGridController(
       return;
     }
 
-    loadedSnapshotEtag = snapshot.etag;
+    currentSnapshotEtag = snapshot.etag;
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const key = getMeasureGridCellKey(track, measure);
