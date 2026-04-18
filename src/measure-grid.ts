@@ -39,7 +39,6 @@ interface CreateMeasureGridControllerOptions {
   dawClient: DawClient;
   appendLog: (message: string) => void;
   autoSendDelayMs: number;
-  gridGetConcurrency: number;
   maxAutoExpandedTrackCount: number;
   maxAutoExpandedMeasureCount: number;
   initialConfig: MeasureGridConfig;
@@ -168,7 +167,6 @@ export function createMeasureGridController(
     dawClient,
     appendLog,
     autoSendDelayMs,
-    gridGetConcurrency,
     maxAutoExpandedTrackCount,
     maxAutoExpandedMeasureCount,
     initialConfig,
@@ -182,6 +180,7 @@ export function createMeasureGridController(
   let measureGridConfig = { ...initialConfig };
   let lastFetchedEtag: string | null = null;
   let lastErrorMessage: string | null = null;
+  let loadVersion = 0;
   let measureGridHighlightTargets: MeasureGridHighlightTargets = {
     chordTarget: null,
     bassTarget: null,
@@ -342,6 +341,7 @@ export function createMeasureGridController(
     measureGridConfig = config;
     // 表示範囲が変わるため、次回は全データを取得し直す。
     lastFetchedEtag = null;
+    loadVersion += 1;
     syncControls();
     render();
   }
@@ -427,7 +427,9 @@ export function createMeasureGridController(
   async function loadFromCmrt(): Promise<void> {
     const visibleTracks = getVisibleTracks(measureGridConfig);
     const visibleMeasures = getVisibleMeasures(measureGridConfig);
-    const shouldShowLoading = lastFetchedEtag === null;
+    const requestVersion = loadVersion;
+    const requestEtag = lastFetchedEtag;
+    const shouldShowLoading = requestEtag === null;
     for (const track of visibleTracks) {
       for (const measure of visibleMeasures) {
         const input = measureGridInputs.get(getMeasureGridCellKey(track, measure));
@@ -437,7 +439,11 @@ export function createMeasureGridController(
       }
     }
 
-    const snapshot = await dawClient.getMmls(lastFetchedEtag ?? undefined);
+    const snapshot = await dawClient.getMmls(requestEtag ?? undefined);
+    if (requestVersion !== loadVersion) {
+      return;
+    }
+
     if (typeof snapshot === "object" && snapshot !== null && "kind" in snapshot) {
       const errorMessage = dawClientErrorMessage(snapshot);
       if (lastErrorMessage !== errorMessage) {

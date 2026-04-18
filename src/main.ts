@@ -48,7 +48,6 @@ const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
 const AUTO_TARGET_TRACK_SCAN_START = 1;
 const AUTO_TARGET_TRACK_SCAN_END = 16;
-const GRID_GET_CONCURRENCY = 8;
 const GRID_AUTO_FETCH_INTERVAL_MS = 1000;
 const MAX_AUTO_EXPANDED_TRACK_COUNT = 16;
 const MAX_AUTO_EXPANDED_MEASURE_COUNT = 32;
@@ -159,7 +158,6 @@ const measureGridController = createMeasureGridController({
   dawClient,
   appendLog,
   autoSendDelayMs: AUTO_SEND_DELAY_MS,
-  gridGetConcurrency: GRID_GET_CONCURRENCY,
   maxAutoExpandedTrackCount: MAX_AUTO_EXPANDED_TRACK_COUNT,
   maxAutoExpandedMeasureCount: MAX_AUTO_EXPANDED_MEASURE_COUNT,
   initialConfig: DEFAULT_MEASURE_GRID_CONFIG,
@@ -195,6 +193,27 @@ function applyMeasureGridConfigFromControls(): boolean {
 
 let isReloadingMeasureGrid = false;
 let shouldReloadMeasureGridAgain = false;
+let measureGridQueuedReloadTimer: number | null = null;
+let lastMeasureGridReloadStartedAt = 0;
+
+function cancelQueuedMeasureGridReload(): void {
+  if (measureGridQueuedReloadTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(measureGridQueuedReloadTimer);
+  measureGridQueuedReloadTimer = null;
+}
+
+function queueMeasureGridReload(): void {
+  cancelQueuedMeasureGridReload();
+  const elapsedMs = Date.now() - lastMeasureGridReloadStartedAt;
+  const delayMs = Math.max(0, GRID_AUTO_FETCH_INTERVAL_MS - elapsedMs);
+  measureGridQueuedReloadTimer = window.setTimeout(() => {
+    measureGridQueuedReloadTimer = null;
+    void reloadMeasureGridFromCmrt();
+  }, delayMs);
+}
 
 async function reloadMeasureGridFromCmrt(): Promise<void> {
   if (isReloadingMeasureGrid) {
@@ -202,14 +221,16 @@ async function reloadMeasureGridFromCmrt(): Promise<void> {
     return;
   }
 
+  cancelQueuedMeasureGridReload();
   isReloadingMeasureGrid = true;
+  lastMeasureGridReloadStartedAt = Date.now();
   try {
     await measureGridController.loadFromCmrt();
   } finally {
     isReloadingMeasureGrid = false;
     if (shouldReloadMeasureGridAgain) {
       shouldReloadMeasureGridAgain = false;
-      void reloadMeasureGridFromCmrt();
+      queueMeasureGridReload();
     }
   }
 }
@@ -457,6 +478,7 @@ const measureGridAutoFetchTimer = window.setInterval(() => {
 }, GRID_AUTO_FETCH_INTERVAL_MS);
 window.addEventListener("beforeunload", () => {
   window.clearInterval(measureGridAutoFetchTimer);
+  cancelQueuedMeasureGridReload();
 });
 
 trackEl.addEventListener("input", () => {
