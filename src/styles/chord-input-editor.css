@@ -1,0 +1,85 @@
+.chord-input-editor {
+  margin-bottom: 0.5rem;
+  border: 1px solid #3e3d32;
+  border-radius: 0.5rem;
+  background: #272822;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+.chord-input-editor:focus-within {
+  border-color: #66d9ef;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 0 0 2px rgb(102 217 239 / 0.18);
+}
+
+.chord-input-editor__input {
+  position: relative;
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+}
+
+.chord-input-editor__overlay,
+.chord-input-editor__textarea {
+  width: 100%;
+  min-height: 5rem;
+  box-sizing: border-box;
+  padding: 0.45rem 0.55rem;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-variant-ligatures: none;
+}
+
+.chord-input-editor__overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #f8f8f2;
+}
+
+.chord-input-editor__textarea {
+  display: block;
+  margin: 0;
+  resize: vertical;
+  color: transparent;
+  caret-color: #f8f8f2;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  -webkit-text-fill-color: transparent;
+}
+
+.chord-input-editor__textarea:focus {
+  outline: none;
+}
+
+.chord-input-editor__textarea::placeholder {
+  color: #a59f85;
+  -webkit-text-fill-color: #a59f85;
+}
+
+.chord-input-editor__textarea::selection {
+  background: rgb(73 72 62 / 0.8);
+}
+
+.chord-input-editor__token {
+  white-space: pre-wrap;
+}
+
+.chord-input-editor__token--suffix {
+  font-weight: 400;
+}
+
+.chord-input-editor__token--annotation,
+.chord-input-editor__token--key-prefix,
+.chord-input-editor__token--separator {
+  font-weight: 350;
+}

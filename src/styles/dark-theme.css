@@ -1,0 +1,195 @@
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #f8f8f2;
+    background: #272822;
+  }
+
+  .startup-overlay {
+    background: rgb(39 40 34 / 0.82);
+  }
+
+  .startup-overlay__dialog {
+    background: #272822;
+    border-color: #75715e;
+    box-shadow: 0 24px 48px rgb(0 0 0 / 0.42);
+  }
+
+  .startup-overlay__detail {
+    background: #3e3d32;
+    border-color: #75715e;
+    color: #f8f8f2;
+  }
+
+  textarea,
+  input[type="number"],
+  select,
+  button,
+  .measure-grid-cell-preview,
+  .measure-grid-cell {
+    color: inherit;
+    background: #3e3d32;
+    border: 1px solid #75715e;
+  }
+
+  .chord-input-editor {
+    border-color: #3e3d32;
+    background: #272822;
+  }
+
+  .chord-input-editor:focus-within {
+    border-color: #66d9ef;
+  }
+
+  .chord-input-editor__input {
+    background: transparent;
+  }
+
+  .chord-input-editor__textarea {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .chord-input-editor__textarea::placeholder {
+    color: #a59f85;
+    -webkit-text-fill-color: #a59f85;
+  }
+
+  button.transport-button {
+    color: #f8f8f2;
+    background: linear-gradient(180deg, #49483e, #3e3d32);
+    border-color: #75715e;
+  }
+
+  .transport-button--play {
+    color: #a6e22e;
+  }
+
+  .transport-button--stop {
+    color: #f8f8f2;
+  }
+
+  .transport-button--play .transport-button__icon path {
+    fill: #a6e22e;
+  }
+
+  .error-balloon {
+    color: #f8f8f2;
+    background: #5b1f3a;
+    border-color: #f92672;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.35);
+  }
+
+  .error-balloon::after {
+    background: #5b1f3a;
+    border-color: #f92672;
+  }
+
+  .measure-grid-settings summary,
+  .log-toggle,
+  .measure-grid-settings__panel,
+  .piano-roll-panel {
+    color: inherit;
+    background: #3e3d32;
+    border-color: #75715e;
+  }
+
+  .measure-grid-settings[open] summary,
+  .log-toggle[aria-expanded="true"] {
+    background: #49483e;
+  }
+
+  .chord-toolbar-select {
+    color: #f8f8f2;
+    background: #3e3d32;
+    border-color: #75715e;
+  }
+
+  .chord-toolbar-select:disabled {
+    color: #a59f85;
+    background: #272822;
+  }
+
+  .chord-toolbar-select option {
+    color: #f8f8f2;
+    background: #3e3d32;
+  }
+
+  .measure-grid-table th,
+  .measure-grid-table td {
+    border-color: #75715e;
+  }
+
+  .piano-roll__content {
+    background-color: #272822;
+    border-color: #75715e;
+    background-image: linear-gradient(to right, rgb(117 113 94 / 0.35) 1px, transparent 1px);
+  }
+
+  .piano-roll__content--empty {
+    background-image: none;
+  }
+
+  .piano-roll__row-line {
+    background: rgb(117 113 94 / 0.5);
+  }
+
+  .piano-roll__note {
+    background: linear-gradient(180deg, #8be9fd, #66d9ef);
+  }
+
+  .piano-roll__note--chord {
+    background: linear-gradient(180deg, #8be9fd, #66d9ef);
+  }
+
+  .piano-roll__note--bass {
+    background: linear-gradient(180deg, #c4f07a, #a6e22e);
+  }
+
+  .piano-roll__note--both {
+    background: linear-gradient(180deg, #ceb5ff, #ae81ff);
+  }
+
+  .measure-grid-table th {
+    background: #49483e;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell,
+  .measure-grid-cell-shell.measure-grid-cell--syncing .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--syncing .measure-grid-cell {
+    background: #49483e;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--error .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--error .measure-grid-cell {
+    background: #5b1f3a;
+    border-color: #f92672;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--target-chord .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--target-chord .measure-grid-cell {
+    box-shadow: inset 0 0 0 2px #66d9ef;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--target-bass .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--target-bass .measure-grid-cell {
+    box-shadow: inset 0 0 0 2px #a6e22e;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--target-both .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--target-both .measure-grid-cell {
+    box-shadow:
+      inset 0 0 0 2px #66d9ef,
+      inset 0 0 0 4px #a6e22e;
+  }
+
+  #log {
+    background: #3e3d32;
+    border-color: #75715e;
+  }
+
+  a {
+    color: #66d9ef;
+  }
+}
