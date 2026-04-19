@@ -32,6 +32,8 @@ export type AutoAdjustResult =
       diagnostics: AutoAdjustDiagnostic[];
     };
 
+const CHORD_SEMITONE_INTERVAL_PENALTY = 24;
+
 function rangePenalty(value: number, min: number, max: number, weight: number): number {
   if (value < min) {
     return (min - value) * weight;
@@ -49,6 +51,7 @@ function baseScore(candidate: Candidate): number {
       : rangePenalty(candidate.metrics.bassPitch, -24, 0, 4);
   return (
     candidate.notationPenalty +
+    candidate.metrics.chordSemitoneIntervalCount * CHORD_SEMITONE_INTERVAL_PENALTY +
     bassRangePenalty +
     rangePenalty(candidate.metrics.topPitch, 0, 24, 3)
   );

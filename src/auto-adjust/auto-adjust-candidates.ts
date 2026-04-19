@@ -7,6 +7,7 @@ export interface ChordMetrics {
   bassPitch: number | null;
   topPitch: number;
   centerPitch: number;
+  chordSemitoneIntervalCount: number;
 }
 
 export interface Candidate {
@@ -109,6 +110,17 @@ function mean(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
+function countSemitoneIntervals(pitches: readonly number[]): number {
+  const sortedPitches = [...pitches].sort((left, right) => left - right);
+  let count = 0;
+  for (let index = 1; index < sortedPitches.length; index += 1) {
+    if (sortedPitches[index] - sortedPitches[index - 1] === 1) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function evaluateCandidate(
   preamble: string,
   chordText: string
@@ -140,6 +152,7 @@ function evaluateCandidate(
     bassPitch: bassPitches?.[0] ?? null,
     topPitch: Math.max(...chordPitches),
     centerPitch: mean(chordPitches),
+    chordSemitoneIntervalCount: countSemitoneIntervals(chordPitches),
   };
 }
 
