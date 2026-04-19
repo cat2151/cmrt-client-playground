@@ -91,21 +91,28 @@
                 <button id="local-storage-import" type="button">JSON import</button>
                 <input id="local-storage-import-file" type="file" accept="application/json" hidden />
               </div>
-              <p class="measure-grid-settings__title">送信先</p>
-              <div class="target-grid measure-grid-targets">
-                <div>
-                  <label for="track">chord track</label>
-                  <input id="track" type="number" min="0" step="1" value="1" />
-                </div>
-                <div>
-                  <label for="measure">chord meas</label>
-                  <input id="measure" type="number" min="0" step="1" value="1" />
-                </div>
-                <div>
-                  <label for="bass-track">bass track</label>
-                  <input id="bass-track" type="number" min="0" step="1" value="1" />
+              <div id="cmrt-target-settings">
+                <p class="measure-grid-settings__title">送信先</p>
+                <div class="target-grid measure-grid-targets">
+                  <div>
+                    <label for="track">chord track</label>
+                    <input id="track" type="number" min="0" step="1" value="1" />
+                  </div>
+                  <div>
+                    <label for="measure">chord meas</label>
+                    <input id="measure" type="number" min="0" step="1" value="1" />
+                  </div>
+                  <div>
+                    <label for="bass-track">bass track</label>
+                    <input id="bass-track" type="number" min="0" step="1" value="1" />
+                  </div>
                 </div>
               </div>
+              <p class="measure-grid-settings__title">コード調整</p>
+              <label class="auto-adjust-toggle">
+                <input id="auto-adjust-chords" type="checkbox" />
+                自動調整
+              </label>
               <p class="measure-grid-settings__title">表示範囲</p>
               <div class="target-grid measure-grid-targets">
                 <div>
@@ -141,6 +148,16 @@
               placeholder="Key=C Bass is root. IM7-bVII-IV-I"
             ></textarea>
           </div>
+        </div>
+        <div id="auto-adjust-output-panel" class="auto-adjust-output" hidden>
+          <label for="auto-adjust-output">自動調整結果</label>
+          <textarea
+            id="auto-adjust-output"
+            aria-label="自動調整結果"
+            spellcheck="false"
+            readonly
+          ></textarea>
+          <p id="auto-adjust-status" class="auto-adjust-output__status"></p>
         </div>
         <section id="piano-roll-panel" class="piano-roll-panel" aria-label="piano roll">
           <div id="piano-roll" class="piano-roll">

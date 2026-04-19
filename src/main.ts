@@ -1,4 +1,5 @@
 import "./style.css";
+import "./auto-adjust.css";
 import {
   parseAppStorageSnapshot,
   stringifyAppStorageSnapshot,
@@ -10,6 +11,7 @@ import {
   type StartupAbRepeatRange,
 } from "./ab-repeat.ts";
 import { syncDebouncedAutoSend } from "./auto-send.ts";
+import { createAutoAdjustPanel } from "./auto-adjust-panel.ts";
 import {
   selectAutoTargetTracks,
   type AutoTargetCandidate,
@@ -104,9 +106,24 @@ const localStorageImportButtonEl = document.getElementById(
 const localStorageImportFileEl = document.getElementById(
   "local-storage-import-file"
 ) as HTMLInputElement;
+const cmrtTargetSettingsEl = document.getElementById(
+  "cmrt-target-settings"
+) as HTMLDivElement;
 const chordTrackEl = document.getElementById("track") as HTMLInputElement;
 const chordMeasureEl = document.getElementById("measure") as HTMLInputElement;
 const bassTrackEl = document.getElementById("bass-track") as HTMLInputElement;
+const autoAdjustChordsEl = document.getElementById(
+  "auto-adjust-chords"
+) as HTMLInputElement;
+const autoAdjustOutputPanelEl = document.getElementById(
+  "auto-adjust-output-panel"
+) as HTMLDivElement;
+const autoAdjustOutputEl = document.getElementById(
+  "auto-adjust-output"
+) as HTMLTextAreaElement;
+const autoAdjustStatusEl = document.getElementById(
+  "auto-adjust-status"
+) as HTMLParagraphElement;
 const gridTrackStartEl = document.getElementById("grid-track-start") as HTMLInputElement;
 const gridTrackCountEl = document.getElementById("grid-track-count") as HTMLInputElement;
 const gridMeasureStartEl = document.getElementById("grid-measure-start") as HTMLInputElement;
@@ -121,6 +138,7 @@ const CHORD_HISTORY_STORAGE_KEY = "cmrt-client-playground.chord.history";
 const CHORD_TRACK_STORAGE_KEY = "cmrt-client-playground.chord.track";
 const CHORD_MEASURE_STORAGE_KEY = "cmrt-client-playground.chord.measure";
 const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
+const AUTO_ADJUST_CHORDS_STORAGE_KEY = "cmrt-client-playground.auto-adjust-chords";
 const CHORD_TEMPLATE_URL =
   "https://raw.githubusercontent.com/cat2151/cat-music-patterns/main/chord-progressions.json";
 const APP_STORAGE_EXPORT_FILENAME = "cmrt-client-playground-local-storage.json";
@@ -130,6 +148,7 @@ const APP_STORAGE_KEYS = [
   CHORD_TRACK_STORAGE_KEY,
   CHORD_MEASURE_STORAGE_KEY,
   BASS_TRACK_STORAGE_KEY,
+  AUTO_ADJUST_CHORDS_STORAGE_KEY,
 ] as const;
 const AUTO_SEND_DELAY_MS = 1000;
 const INIT_MEASURE = 0;
@@ -149,6 +168,12 @@ const reportedLocalStorageErrors = new Set<string>();
 const smfConverter = createMmlabcToSmfConverter();
 const inputEl: ChordProgressionEditor = createChordProgressionEditor({
   element: inputEditorEl,
+});
+const autoAdjustPanel = createAutoAdjustPanel({
+  enabledEl: autoAdjustChordsEl,
+  panelEl: autoAdjustOutputPanelEl,
+  outputEl: autoAdjustOutputEl,
+  statusEl: autoAdjustStatusEl,
 });
 
 const DEFAULT_MEASURE_GRID_CONFIG: MeasureGridConfig = {
@@ -247,6 +272,17 @@ function loadStoredText(
   const storedValue = readLocalStorageItem(key);
   element.value = storedValue ?? fallback;
   return storedValue !== null;
+}
+
+function loadStoredBoolean(key: string, fallback: boolean): boolean {
+  const storedValue = readLocalStorageItem(key);
+  if (storedValue === "true") {
+    return true;
+  }
+  if (storedValue === "false") {
+    return false;
+  }
+  return fallback;
 }
 
 function saveTarget(key: string, element: HTMLInputElement): void {
@@ -475,6 +511,7 @@ function persistTopLevelStateToStorage(): void {
   saveTarget(CHORD_TRACK_STORAGE_KEY, chordTrackEl);
   saveTarget(CHORD_MEASURE_STORAGE_KEY, chordMeasureEl);
   saveTarget(BASS_TRACK_STORAGE_KEY, bassTrackEl);
+  saveText(AUTO_ADJUST_CHORDS_STORAGE_KEY, autoAdjustPanel.storageValue);
 }
 
 function restoreTopLevelStateFromStorage(): {
@@ -483,6 +520,7 @@ function restoreTopLevelStateFromStorage(): {
 } {
   selectedChordTemplateDegrees = null;
   loadStoredText(INPUT_STORAGE_KEY, "", inputEl);
+  autoAdjustPanel.enabled = loadStoredBoolean(AUTO_ADJUST_CHORDS_STORAGE_KEY, false);
   loadStoredChordHistory();
   const hasStoredChordTrack = loadStoredTarget(CHORD_TRACK_STORAGE_KEY, DEFAULT_TRACK, chordTrackEl);
   loadStoredTarget(CHORD_MEASURE_STORAGE_KEY, DEFAULT_MEASURE, chordMeasureEl);
@@ -552,6 +590,15 @@ function validateImportedStorageValues(values: Record<string, string>): string |
     }
   }
 
+  const autoAdjustValue = values[AUTO_ADJUST_CHORDS_STORAGE_KEY];
+  if (
+    autoAdjustValue !== undefined &&
+    autoAdjustValue !== "true" &&
+    autoAdjustValue !== "false"
+  ) {
+    return `${AUTO_ADJUST_CHORDS_STORAGE_KEY} には true または false を指定してください`;
+  }
+
   return null;
 }
 
@@ -588,6 +635,7 @@ async function importManagedLocalStorage(file: File): Promise<void> {
   }
 
   restoreTopLevelStateFromStorage();
+  syncAutoAdjustPanel();
   syncMeasureGridHighlightTargets();
   if (isCmrtReady) {
     void applyAbRepeat({ source: "auto" });
@@ -656,6 +704,10 @@ const measureGridController = createMeasureGridController({
 function syncMeasureGridTrackHeaderActions(): void {
   measureGridController.render();
   syncMeasureGridHighlightTargets();
+}
+
+function syncToneFallbackVisibility(): void {
+  cmrtTargetSettingsEl.hidden = isToneFallbackMode;
 }
 
 function syncMeasureGridHighlightTargets(): void {
@@ -840,6 +892,14 @@ function renderPianoRollPreview(options: {
   }
 }
 
+function syncAutoAdjustPanel(): void {
+  autoAdjustPanel.sync(inputEl.value);
+}
+
+function getEffectiveChordInput(): string {
+  return autoAdjustPanel.getEffectiveInput(inputEl.value);
+}
+
 function cancelToneChordPreview(): void {
   toneChordPreviewRequestId += 1;
   stopToneChordPlayback();
@@ -882,7 +942,7 @@ async function syncToneChordPreview(): Promise<void> {
   }
 
   const requestId = ++toneChordPreviewRequestId;
-  const source = buildChordPlaybackSource(inputEl.value);
+  const source = buildChordPlaybackSource(getEffectiveChordInput());
   if (!source.ok) {
     stopToneChordPlayback();
     return;
@@ -909,7 +969,7 @@ async function syncToneChordPreview(): Promise<void> {
 
 async function syncPianoRollPreview(): Promise<void> {
   const requestId = ++pianoRollPreviewRequestId;
-  const source = buildChordPlaybackSource(inputEl.value);
+  const source = buildChordPlaybackSource(getEffectiveChordInput());
   if (!source.ok) {
     clearPianoRollPreview();
     return;
@@ -946,7 +1006,7 @@ function getCurrentAbRepeatRange(): StartupAbRepeatRange | null {
   }
 
   return getStartupAbRepeatRange({
-    input: inputEl.value,
+    input: getEffectiveChordInput(),
     chordMeasure,
   });
 }
@@ -1017,6 +1077,7 @@ function activateToneFallbackMode(error: ReturnType<typeof getStartupErrorOverla
   }
 
   isToneFallbackMode = true;
+  syncToneFallbackVisibility();
   syncMeasureGridTrackHeaderActions();
   appendLog(
     `cmrt疎通確認エラーのため Tone.js chord fallback で継続します: ${error.title}`
@@ -1080,6 +1141,7 @@ async function startAppAfterCmrtReady(options: {
   autoStartPlayback: boolean;
 }): Promise<void> {
   isToneFallbackMode = false;
+  syncToneFallbackVisibility();
   syncMeasureGridTrackHeaderActions();
   hideStartupOverlay();
   clearStartupConnectivityRetry();
@@ -1177,7 +1239,7 @@ async function sendCurrentMml(): Promise<void> {
     rememberChordHistoryEntry(inputEl.value);
   }
   await sendMml({
-    input: inputEl.value,
+    input: getEffectiveChordInput(),
     chordTrack,
     chordMeasure,
     bassTrackValue: bassTrackEl.value,
@@ -1202,7 +1264,7 @@ async function exportCurrentSmf(): Promise<void> {
     }
 
     const result = await convertChordProgressionToSmf(
-      inputEl.value,
+      getEffectiveChordInput(),
       smfConverter
     );
     if (!result.ok) {
@@ -1246,7 +1308,7 @@ async function postRandomPatchForTarget(
 }
 
 const debouncedSendMml = createDebouncedCallback(() => {
-  if (!inputEl.value.trim()) {
+  if (!getEffectiveChordInput().trim()) {
     return;
   }
 
@@ -1265,7 +1327,11 @@ function syncTopLevelAutoSend(): void {
   const canSendToChordTargets =
     parseNonNegativeInteger(chordTrackEl.value) !== null &&
     parseNonNegativeInteger(chordMeasureEl.value) !== null;
-  syncDebouncedAutoSend(inputEl.value, debouncedSendMml, canSendToChordTargets);
+  syncDebouncedAutoSend(
+    getEffectiveChordInput(),
+    debouncedSendMml,
+    canSendToChordTargets
+  );
 }
 
 function syncTopLevelAbRepeat(): void {
@@ -1281,6 +1347,7 @@ function syncChordInputStateAfterChange(
   source: ToneChordPreviewInputSource = "other"
 ): void {
   saveText(INPUT_STORAGE_KEY, inputEl.value);
+  syncAutoAdjustPanel();
   renderChordHistorySelect();
   renderChordTemplateSelect();
   syncMeasureGridHighlightTargets();
@@ -1298,6 +1365,7 @@ function syncChordInputStateAfterChange(
 }
 
 const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStorage();
+syncAutoAdjustPanel();
 renderChordTemplateSelect();
 void loadChordTemplates();
 measureGridController.syncControls();
@@ -1340,6 +1408,10 @@ bassTrackEl.addEventListener("input", () => {
   syncMeasureGridTrackHeaderActions();
   syncTopLevelAutoSend();
 });
+autoAdjustPanel.addChangeListener(() => {
+  saveText(AUTO_ADJUST_CHORDS_STORAGE_KEY, autoAdjustPanel.storageValue);
+  syncChordInputStateAfterChange();
+});
 inputEl.addEventListener("input", () => {
   selectedChordTemplateDegrees = null;
   syncChordInputStateAfterChange("textarea");
@@ -1373,10 +1445,11 @@ playStartButtonEl.addEventListener("click", async () => {
   cancelToneChordPreview();
   clearToneFallbackPlaybackReset();
   if (!isCmrtReady) {
-    const source = buildChordPlaybackSource(inputEl.value);
+    const effectiveInput = getEffectiveChordInput();
+    const source = buildChordPlaybackSource(effectiveInput);
     if (!source.ok) {
       if (source.reason === "unrecognized-chord") {
-        const message = `コードを認識できませんでした: "${inputEl.value.trim()}"`;
+        const message = `コードを認識できませんでした: "${effectiveInput.trim()}"`;
         appendLog(`ERROR: ${message}`);
         showChordAnalysisErrorBalloon(message);
       }

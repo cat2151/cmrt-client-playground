@@ -507,7 +507,8 @@ button.transport-button:disabled:active {
   margin-bottom: 0;
 }
 
-.measure-grid-targets + .measure-grid-settings__title {
+.measure-grid-targets + .measure-grid-settings__title,
+#cmrt-target-settings + .measure-grid-settings__title {
   margin-top: 1rem;
 }
 

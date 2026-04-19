@@ -1,0 +1,216 @@
+import { splitBassRootChordSegment } from "./bass-root-mml.ts";
+import { chordToMml } from "./chord-to-mml.ts";
+import { splitSanitizedMmlIntoChordSegments } from "./measure-input.ts";
+import { sanitizeMmlForPost } from "./post-config.ts";
+
+export interface ChordMetrics {
+  bassPitch: number | null;
+  topPitch: number;
+  centerPitch: number;
+}
+
+export interface Candidate {
+  text: string;
+  inversion: number;
+  upperOffset: number;
+  lowerOffset: number;
+  metrics: ChordMetrics;
+  notationPenalty: number;
+  order: number;
+}
+
+const OCTAVE_OFFSETS = [-1, 0, 1] as const;
+const INVERSION_COUNTS = [0, 1, 2, 3] as const;
+
+function octaveOffsetText(offset: number): string {
+  if (offset > 0) {
+    return "'".repeat(offset);
+  }
+  if (offset < 0) {
+    return ",".repeat(-offset);
+  }
+  return "";
+}
+
+function formatAdjustmentSuffix(
+  inversion: number,
+  upperOffset: number,
+  lowerOffset: number
+): string {
+  const inversionText = inversion === 0 ? "" : `^${inversion}`;
+  if (upperOffset === lowerOffset) {
+    return `${inversionText}${octaveOffsetText(upperOffset)}`;
+  }
+
+  return `${inversionText}${octaveOffsetText(upperOffset)}/${octaveOffsetText(
+    lowerOffset
+  )}`;
+}
+
+function formatCandidateText(
+  baseText: string,
+  inversion: number,
+  upperOffset: number,
+  lowerOffset: number
+): string {
+  return `${baseText}${formatAdjustmentSuffix(inversion, upperOffset, lowerOffset)}`;
+}
+
+function buildEvaluationInput(preamble: string, chordText: string): string {
+  return preamble === "" ? chordText : `${preamble} ${chordText}`;
+}
+
+function parseChordSegmentPitches(chordSegment: string): number[] | null {
+  if (!/^'[^']*'$/.test(chordSegment)) {
+    return null;
+  }
+
+  const pitchClassByNote: Record<string, number> = {
+    c: 0,
+    d: 2,
+    e: 4,
+    f: 5,
+    g: 7,
+    a: 9,
+    b: 11,
+  };
+  const pitches: number[] = [];
+  let octaveOffset = 0;
+  let rest = chordSegment.slice(1, -1);
+
+  while (rest !== "") {
+    const match = rest.match(
+      /^(?<prefix>[<>]*)(?<note>[a-g])(?<accidental>[+#-]?)(?<lengthText>\d*)(?<dotText>\.*)/i
+    );
+    if (match?.groups === undefined || match[0] === "") {
+      return null;
+    }
+
+    for (const char of match.groups.prefix) {
+      octaveOffset += char === "<" ? 1 : -1;
+    }
+
+    const note = match.groups.note.toLowerCase();
+    const accidental = match.groups.accidental;
+    const accidentalOffset =
+      accidental === "+" || accidental === "#"
+        ? 1
+        : accidental === "-"
+          ? -1
+          : 0;
+    pitches.push(pitchClassByNote[note] + accidentalOffset + octaveOffset * 12);
+    rest = rest.slice(match[0].length);
+  }
+
+  return pitches;
+}
+
+function mean(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function evaluateCandidate(
+  preamble: string,
+  chordText: string
+): ChordMetrics | null {
+  const mml = chordToMml(buildEvaluationInput(preamble, chordText));
+  if (mml === null) {
+    return null;
+  }
+
+  const { mml: sanitizedMml } = sanitizeMmlForPost(mml);
+  const chordSegments = splitSanitizedMmlIntoChordSegments(sanitizedMml);
+  if (chordSegments.length !== 1) {
+    return null;
+  }
+
+  const split = splitBassRootChordSegment(chordSegments[0]);
+  const chordPitches = parseChordSegmentPitches(split.chordMml);
+  if (chordPitches === null || chordPitches.length === 0) {
+    return null;
+  }
+
+  const bassPitches =
+    split.bassMml === "" ? null : parseChordSegmentPitches(split.bassMml);
+  if (split.bassMml !== "" && bassPitches === null) {
+    return null;
+  }
+
+  return {
+    bassPitch: bassPitches?.[0] ?? null,
+    topPitch: Math.max(...chordPitches),
+    centerPitch: mean(chordPitches),
+  };
+}
+
+function createCandidate(
+  preamble: string,
+  baseText: string,
+  inversion: number,
+  upperOffset: number,
+  lowerOffset: number,
+  order: number
+): Candidate | null {
+  const text = formatCandidateText(baseText, inversion, upperOffset, lowerOffset);
+  const metrics = evaluateCandidate(preamble, text);
+  if (metrics === null) {
+    return null;
+  }
+
+  return {
+    text,
+    inversion,
+    upperOffset,
+    lowerOffset,
+    metrics,
+    notationPenalty:
+      Math.abs(upperOffset) +
+      Math.abs(lowerOffset) +
+      inversion * 0.4 +
+      (upperOffset === lowerOffset ? 0 : 0.15),
+    order,
+  };
+}
+
+function candidateSortKey(candidate: Candidate): number {
+  return candidate.notationPenalty * 100 + candidate.order;
+}
+
+export function buildCandidates(preamble: string, baseText: string): Candidate[] {
+  const candidates: Candidate[] = [];
+  const seen = new Set<string>();
+  let order = 0;
+
+  for (const inversion of INVERSION_COUNTS) {
+    for (const upperOffset of OCTAVE_OFFSETS) {
+      for (const lowerOffset of OCTAVE_OFFSETS) {
+        const text = formatCandidateText(
+          baseText,
+          inversion,
+          upperOffset,
+          lowerOffset
+        );
+        if (seen.has(text)) {
+          continue;
+        }
+        seen.add(text);
+        const candidate = createCandidate(
+          preamble,
+          baseText,
+          inversion,
+          upperOffset,
+          lowerOffset,
+          order
+        );
+        order += 1;
+        if (candidate !== null) {
+          candidates.push(candidate);
+        }
+      }
+    }
+  }
+
+  return candidates.sort(
+    (left, right) => candidateSortKey(left) - candidateSortKey(right)
+  );
+}
