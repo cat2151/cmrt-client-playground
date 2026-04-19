@@ -6,6 +6,8 @@ import {
   CHORD_HISTORY_STORAGE_KEY,
   CHORD_MEASURE_STORAGE_KEY,
   CHORD_TRACK_STORAGE_KEY,
+  TONE_INSTRUMENT_MML_HISTORY_STORAGE_KEY,
+  TONE_INSTRUMENT_VOLUME_STORAGE_KEY,
 } from "./app-constants.ts";
 import {
   parseAppStorageSnapshot,
@@ -13,6 +15,8 @@ import {
 } from "./app-storage.ts";
 import { parseChordHistoryStorage } from "../chords/chord-history.ts";
 import { parseNonNegativeInteger } from "../daw/post-config.ts";
+import { parseToneInstrumentMmlHistoryStorage } from "../tone/tone-instrument-history.ts";
+import { isToneInstrumentVolume } from "../tone/tone-instruments.ts";
 
 export interface LocalStorageAccess {
   readItem(key: string): string | null;
@@ -189,6 +193,22 @@ function validateImportedStorageValues(values: Record<string, string>): string |
     autoAdjustValue !== "false"
   ) {
     return `${AUTO_ADJUST_CHORDS_STORAGE_KEY} には true または false を指定してください`;
+  }
+
+  const toneInstrumentVolume = values[TONE_INSTRUMENT_VOLUME_STORAGE_KEY];
+  if (
+    toneInstrumentVolume !== undefined &&
+    !isToneInstrumentVolume(toneInstrumentVolume)
+  ) {
+    return `${TONE_INSTRUMENT_VOLUME_STORAGE_KEY} には v1 から v15 を指定してください`;
+  }
+
+  const toneInstrumentHistoryValue = values[TONE_INSTRUMENT_MML_HISTORY_STORAGE_KEY];
+  if (toneInstrumentHistoryValue !== undefined) {
+    const parsed = parseToneInstrumentMmlHistoryStorage(toneInstrumentHistoryValue);
+    if (!parsed.ok) {
+      return `${TONE_INSTRUMENT_MML_HISTORY_STORAGE_KEY} は tone MML history として読み取れません: ${parsed.message}`;
+    }
   }
 
   return null;

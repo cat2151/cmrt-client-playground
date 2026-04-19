@@ -13,6 +13,9 @@ import {
 } from "./app-constants.ts";
 import { getAppDomElements } from "./app-dom.ts";
 import { createAppendLog } from "./app-log.ts";
+import { getTargetValue } from "./app-target-value.ts";
+import { createAppToneInstrumentSettings } from "./app-tone-instrument-settings.ts";
+import { playCurrentToneChord } from "./app-tone-playback.ts";
 import {
   createLocalStorageAccess,
   exportManagedLocalStorageSnapshot,
@@ -24,14 +27,13 @@ import {
   saveText,
 } from "./app-storage-io.ts";
 import { createAutoAdjustPanel } from "../auto-adjust/auto-adjust-panel.ts";
-import { buildChordPlaybackSource } from "../chords/chord-playback-source.ts";
 import { createChordSelectionController } from "../chords/chord-selection-controller.ts";
 import { createChordProgressionEditor } from "../chords/chord-progression-highlight.ts";
 import { createChordAnalysisErrorBalloon } from "../chords/chord-analysis-error-balloon.ts";
 import { createCmrtRuntime, type CmrtRuntime } from "./cmrt-runtime.ts";
 import { DawClient } from "../daw/daw-client.ts";
 import { createMeasureGridController } from "../measure-grid/measure-grid.ts";
-import { DEFAULT_MEASURE, DEFAULT_TRACK, parseNonNegativeInteger } from "../daw/post-config.ts";
+import { DEFAULT_MEASURE, DEFAULT_TRACK } from "../daw/post-config.ts";
 import { createPianoRollPreviewController } from "../piano-roll/piano-roll-preview-controller.ts";
 import { getPlaybackButtonState, runPlaybackAction } from "../daw/playback.ts";
 import { sendMml } from "../daw/send-mml.ts";
@@ -39,8 +41,6 @@ import { createMmlabcToSmfConverter } from "../smf/smf-export.ts";
 import { createSmfExportController } from "../smf/smf-export-controller.ts";
 import { STARTUP_CONNECTING_OVERLAY } from "../startup/startup-overlay.ts";
 import { createStartupOverlayController } from "../startup/startup-overlay-controller.ts";
-import { playToneChordMml } from "../tone/tone-chord-playback.ts";
-import { buildTonePlaybackMml } from "../tone/tone-playback-mml.ts";
 import { createTonePreviewController } from "../tone/tone-preview-controller.ts";
 import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-sync.ts";
 
@@ -67,6 +67,10 @@ const autoAdjustPanel = createAutoAdjustPanel({
   outputEl: autoAdjustOutputEditor,
   statusEl: dom.autoAdjustStatusEl,
 });
+let onToneInstrumentMmlChange = (): void => {};
+const toneInstrumentSettings = createAppToneInstrumentSettings({
+  dom, storage, appendLog, onInstrumentMmlChange: () => onToneInstrumentMmlChange(),
+});
 
 let currentPlaybackBackend: PlaybackBackend = null;
 let cmrtRuntime: CmrtRuntime | null = null;
@@ -77,15 +81,6 @@ function saveTargetValue(key: string, element: HTMLInputElement): void {
 
 function saveTextValue(key: string, value: string): void {
   saveText(storage, key, value);
-}
-
-function getTargetValue(element: HTMLInputElement, name: string): number | null {
-  const parsed = parseNonNegativeInteger(element.value);
-  if (parsed === null) {
-    appendLog(`ERROR: ${name} には 0 以上の整数を指定してください`);
-    return null;
-  }
-  return parsed;
 }
 
 function setLogVisible(visible: boolean): void {
@@ -140,6 +135,7 @@ const pianoRollPreview = createPianoRollPreviewController({
 
 const tonePreview = createTonePreviewController({
   getInput: getEffectiveChordInput,
+  getInstrumentMml: toneInstrumentSettings.getInstrumentMml,
   getPlaybackBackend: () => currentPlaybackBackend,
   setPlaybackBackend,
   isToneFallbackMode: () => cmrtRuntime?.isToneFallbackMode ?? false,
@@ -160,9 +156,25 @@ const chordSelection = createChordSelectionController({
   onInputChange: syncChordInputStateAfterChange,
 });
 
+function playToneInstrumentPreview(): Promise<boolean> {
+  return playCurrentToneChord({
+    getInput: getEffectiveChordInput,
+    getInstrumentMml: toneInstrumentSettings.getInstrumentMml,
+    cancelTonePreview: tonePreview.cancelPreview,
+    clearTonePlaybackReset: tonePreview.clearPlaybackReset,
+    scheduleTonePlaybackReset: tonePreview.schedulePlaybackReset,
+    setPlaybackBackend,
+    appendLog,
+    showChordAnalysisErrorBalloon: chordAnalysisErrorBalloon.show,
+  });
+}
+onToneInstrumentMmlChange = () => {
+  void playToneInstrumentPreview();
+};
+
 async function sendCurrentMml(): Promise<void> {
-  const chordTrack = getTargetValue(dom.chordTrackEl, "chord track");
-  const chordMeasure = getTargetValue(dom.chordMeasureEl, "chord meas");
+  const chordTrack = getTargetValue(dom.chordTrackEl, "chord track", appendLog);
+  const chordMeasure = getTargetValue(dom.chordMeasureEl, "chord meas", appendLog);
   if (chordTrack === null || chordMeasure === null) {
     return;
   }
@@ -213,6 +225,7 @@ const smfExportController = createSmfExportController({
 function persistTopLevelStateToStorage(): void {
   saveTextValue(INPUT_STORAGE_KEY, inputEl.value);
   chordSelection.saveChordHistory();
+  toneInstrumentSettings.persistState();
   saveTargetValue(CHORD_TRACK_STORAGE_KEY, dom.chordTrackEl);
   saveTargetValue(CHORD_MEASURE_STORAGE_KEY, dom.chordMeasureEl);
   saveTargetValue(BASS_TRACK_STORAGE_KEY, dom.bassTrackEl);
@@ -225,6 +238,7 @@ function restoreTopLevelStateFromStorage(): {
 } {
   chordSelection.clearSelectedTemplate();
   loadStoredText(storage, INPUT_STORAGE_KEY, "", inputEl);
+  toneInstrumentSettings.restoreState();
   autoAdjustPanel.enabled = loadStoredBoolean(
     storage,
     AUTO_ADJUST_CHORDS_STORAGE_KEY,
@@ -271,6 +285,7 @@ const { hasStoredChordTrack, hasStoredBassTrack } = restoreTopLevelStateFromStor
 syncAutoAdjustPanel();
 chordSelection.renderTemplateSelect();
 void chordSelection.loadChordTemplates();
+void toneInstrumentSettings.loadToneInstruments();
 measureGridController.syncControls();
 measureGridController.render();
 cmrtRuntime.syncMeasureGridHighlightTargets();
@@ -284,6 +299,7 @@ cmrtRuntime.start({
 });
 
 window.addEventListener("beforeunload", () => {
+  toneInstrumentSettings.persistState();
   cmrtRuntime?.cleanup();
   tonePreview.clearPlaybackReset();
   tonePreview.cancelPreview();
@@ -332,34 +348,17 @@ dom.chordTemplateKeySelectEl.addEventListener("change", () => {
 dom.chordTemplateSelectEl.addEventListener("change", () => {
   chordSelection.selectTemplate();
 });
+dom.toneInstrumentPlayButtonEl.addEventListener("click", () => {
+  void playToneInstrumentPreview();
+});
 dom.playStartButtonEl.addEventListener("click", async () => {
-  tonePreview.cancelPreview();
-  tonePreview.clearPlaybackReset();
   if (!cmrtRuntime?.isCmrtReady) {
-    const effectiveInput = getEffectiveChordInput();
-    const source = buildChordPlaybackSource(effectiveInput);
-    if (!source.ok) {
-      if (source.reason === "unrecognized-chord") {
-        const message = `コードを認識できませんでした: "${effectiveInput.trim()}"`;
-        appendLog(`ERROR: ${message}`);
-        chordAnalysisErrorBalloon.show(message);
-      }
-      return;
-    }
-
-    try {
-      const durationSeconds = await playToneChordMml({
-        mml: buildTonePlaybackMml(source),
-      });
-      appendLog("Tone.js chord play を開始しました");
-      setPlaybackBackend("tone");
-      tonePreview.schedulePlaybackReset(durationSeconds);
-    } catch (error: unknown) {
-      appendLog(`ERROR: Tone.js chord play の開始に失敗しました: ${String(error)}`);
-    }
+    await playToneInstrumentPreview();
     return;
   }
 
+  tonePreview.cancelPreview();
+  tonePreview.clearPlaybackReset();
   tonePreview.stopPlayback();
   const started = await runPlaybackAction({
     action: "start",
@@ -422,6 +421,7 @@ dom.localStorageImportFileEl.addEventListener("change", () => {
     afterImport: () => {
       restoreTopLevelStateFromStorage();
       syncAutoAdjustPanel();
+      tonePreview.syncAfterInputChange("other");
       cmrtRuntime?.syncMeasureGridHighlightTargets();
       if (cmrtRuntime?.isCmrtReady) {
         void cmrtRuntime.applyAbRepeat({ source: "auto" });

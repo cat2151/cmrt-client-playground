@@ -19,6 +19,11 @@ export interface AppDomElements {
   localStorageExportButtonEl: HTMLButtonElement;
   localStorageImportButtonEl: HTMLButtonElement;
   localStorageImportFileEl: HTMLInputElement;
+  toneInstrumentSelectEl: HTMLSelectElement;
+  toneInstrumentPlayButtonEl: HTMLButtonElement;
+  toneInstrumentMmlEl: HTMLTextAreaElement;
+  toneInstrumentMmlHistorySelectEl: HTMLSelectElement;
+  toneInstrumentVolumeSelectEl: HTMLSelectElement;
   cmrtTargetSettingsEl: HTMLDivElement;
   chordTrackEl: HTMLInputElement;
   chordMeasureEl: HTMLInputElement;
@@ -68,6 +73,11 @@ export function getAppDomElements(): AppDomElements {
     localStorageExportButtonEl: getElement("local-storage-export"),
     localStorageImportButtonEl: getElement("local-storage-import"),
     localStorageImportFileEl: getElement("local-storage-import-file"),
+    toneInstrumentSelectEl: getElement("tone-instrument-select"),
+    toneInstrumentPlayButtonEl: getElement("tone-instrument-play"),
+    toneInstrumentMmlEl: getElement("tone-instrument-mml"),
+    toneInstrumentMmlHistorySelectEl: getElement("tone-instrument-mml-history"),
+    toneInstrumentVolumeSelectEl: getElement("tone-instrument-volume"),
     cmrtTargetSettingsEl: getElement("cmrt-target-settings"),
     chordTrackEl: getElement("track"),
     chordMeasureEl: getElement("measure"),

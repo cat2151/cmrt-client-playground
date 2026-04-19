@@ -3,6 +3,11 @@ import {
   playSequence,
   type SequenceEvent,
 } from "tonejs-json-sequencer";
+import {
+  applyToneMmlVolumeToSequence,
+  extractToneMmlVolume,
+  stripToneMmlVolumeTokens,
+} from "./tone-mml-volume.ts";
 
 const nodes = new SequencerNodes();
 const TONEJS_MML_TO_JSON_ASSET_ROOT = "vendor/tonejs-mml-to-json";
@@ -122,7 +127,11 @@ export async function playToneChordMml(options: {
     return 0;
   }
 
-  const sequence = tonejsMmlToJson.mml2json(options.mml);
+  const volume = extractToneMmlVolume(options.mml);
+  const sequence = applyToneMmlVolumeToSequence(
+    tonejsMmlToJson.mml2json(stripToneMmlVolumeTokens(options.mml)),
+    volume
+  );
   if (options.shouldContinue !== undefined && !options.shouldContinue()) {
     return 0;
   }

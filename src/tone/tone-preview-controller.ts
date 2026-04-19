@@ -12,6 +12,7 @@ import { buildTonePlaybackMml } from "./tone-playback-mml.ts";
 
 interface TonePreviewControllerOptions {
   getInput: () => string;
+  getInstrumentMml: () => string;
   getPlaybackBackend: () => "cmrt" | "tone" | null;
   setPlaybackBackend: (backend: "cmrt" | "tone" | null) => void;
   isToneFallbackMode: () => boolean;
@@ -82,7 +83,7 @@ export function createTonePreviewController(options: TonePreviewControllerOption
 
     try {
       await playToneChordMml({
-        mml: buildTonePlaybackMml(source),
+        mml: buildTonePlaybackMml(source, options.getInstrumentMml()),
         shouldContinue: () =>
           requestId === previewRequestId && options.getPlaybackBackend() === null,
       });

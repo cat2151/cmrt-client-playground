@@ -7,9 +7,19 @@ export const CHORD_MEASURE_STORAGE_KEY = "cmrt-client-playground.chord.measure";
 export const BASS_TRACK_STORAGE_KEY = "cmrt-client-playground.bass-track";
 export const AUTO_ADJUST_CHORDS_STORAGE_KEY =
   "cmrt-client-playground.auto-adjust-chords";
+export const TONE_INSTRUMENT_SELECTION_STORAGE_KEY =
+  "cmrt-client-playground.tone.instrument.selection";
+export const TONE_INSTRUMENT_MML_STORAGE_KEY =
+  "cmrt-client-playground.tone.instrument.mml";
+export const TONE_INSTRUMENT_VOLUME_STORAGE_KEY =
+  "cmrt-client-playground.tone.instrument.volume";
+export const TONE_INSTRUMENT_MML_HISTORY_STORAGE_KEY =
+  "cmrt-client-playground.tone.instrument.mml.history";
 
 export const CHORD_TEMPLATE_URL =
   "https://raw.githubusercontent.com/cat2151/cat-music-patterns/main/chord-progressions.json";
+export const TONE_INSTRUMENTS_URL =
+  "https://raw.githubusercontent.com/cat2151/cat-music-patterns/main/tonejs-mml-instruments.md";
 export const APP_STORAGE_EXPORT_FILENAME =
   "cmrt-client-playground-local-storage.json";
 export const APP_STORAGE_KEYS = [
@@ -19,6 +29,10 @@ export const APP_STORAGE_KEYS = [
   CHORD_MEASURE_STORAGE_KEY,
   BASS_TRACK_STORAGE_KEY,
   AUTO_ADJUST_CHORDS_STORAGE_KEY,
+  TONE_INSTRUMENT_SELECTION_STORAGE_KEY,
+  TONE_INSTRUMENT_MML_STORAGE_KEY,
+  TONE_INSTRUMENT_VOLUME_STORAGE_KEY,
+  TONE_INSTRUMENT_MML_HISTORY_STORAGE_KEY,
 ] as const;
 
 export const AUTO_SEND_DELAY_MS = 1000;

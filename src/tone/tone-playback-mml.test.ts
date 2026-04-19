@@ -13,4 +13,15 @@ describe("buildTonePlaybackMml", () => {
     expect(source.bassMml).toBe("'>c1'");
     expect(buildTonePlaybackMml(source)).toBe("'>c1<ceg'");
   });
+
+  it("prepends the Tone.js instrument MML when provided", () => {
+    const source = buildChordPlaybackSource("Key=C Bass is root. I");
+    if (!source.ok) {
+      throw new Error("expected chord source to be built");
+    }
+
+    expect(buildTonePlaybackMml(source, "@DuoSynth\nv10")).toBe(
+      "@DuoSynth\nv10\n'>c1<ceg'"
+    );
+  });
 });
