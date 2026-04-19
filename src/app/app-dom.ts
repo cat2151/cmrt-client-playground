@@ -16,6 +16,7 @@ export interface AppDomElements {
   chordTemplateSelectEl: HTMLSelectElement;
   inputEditorEl: HTMLDivElement;
   pianoRollContentEl: HTMLDivElement;
+  toneFallbackNoticeEl: HTMLParagraphElement;
   localStorageExportButtonEl: HTMLButtonElement;
   localStorageImportButtonEl: HTMLButtonElement;
   localStorageImportFileEl: HTMLInputElement;
@@ -36,6 +37,7 @@ export interface AppDomElements {
   gridTrackCountEl: HTMLInputElement;
   gridMeasureStartEl: HTMLInputElement;
   gridMeasureCountEl: HTMLInputElement;
+  measureGridPanelEl: HTMLElement;
   measureGridHeadEl: HTMLTableSectionElement;
   measureGridBodyEl: HTMLTableSectionElement;
   logToggleButtonEl: HTMLButtonElement;
@@ -70,6 +72,7 @@ export function getAppDomElements(): AppDomElements {
     chordTemplateSelectEl: getElement("chord-template"),
     inputEditorEl: getElement("input"),
     pianoRollContentEl: getElement("piano-roll-content"),
+    toneFallbackNoticeEl: getElement("tone-fallback-cmrt-notice"),
     localStorageExportButtonEl: getElement("local-storage-export"),
     localStorageImportButtonEl: getElement("local-storage-import"),
     localStorageImportFileEl: getElement("local-storage-import-file"),
@@ -90,6 +93,7 @@ export function getAppDomElements(): AppDomElements {
     gridTrackCountEl: getElement("grid-track-count"),
     gridMeasureStartEl: getElement("grid-measure-start"),
     gridMeasureCountEl: getElement("grid-measure-count"),
+    measureGridPanelEl: getElement("measure-grid-panel"),
     measureGridHeadEl: getElement("measure-grid-head"),
     measureGridBodyEl: getElement("measure-grid-body"),
     logToggleButtonEl: getElement("log-toggle"),

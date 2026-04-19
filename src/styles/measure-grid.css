@@ -2,6 +2,15 @@
   margin-top: 1rem;
 }
 
+.tone-fallback-notice {
+  margin: 1rem 0 0;
+  font-weight: 600;
+}
+
+.tone-fallback-notice a {
+  margin-left: 0.35rem;
+}
+
 .measure-grid-settings {
   flex: 0 0 auto;
   position: relative;

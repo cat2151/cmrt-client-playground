@@ -13,6 +13,7 @@ import {
 } from "./app-constants.ts";
 import { getAppDomElements } from "./app-dom.ts";
 import { createAppendLog } from "./app-log.ts";
+import { initializeToneFallbackUi } from "./tone-fallback-ui.ts";
 import { getTargetValue } from "./app-target-value.ts";
 import { createAppToneInstrumentSettings } from "./app-tone-instrument-settings.ts";
 import { playCurrentToneChord } from "./app-tone-playback.ts";
@@ -47,6 +48,7 @@ import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-syn
 type PlaybackBackend = "cmrt" | "tone" | null;
 
 const dom = getAppDomElements();
+const toneFallbackUi = initializeToneFallbackUi(dom);
 const appendLog = createAppendLog(dom.logEl);
 const storage = createLocalStorageAccess(appendLog);
 const startupOverlay = createStartupOverlayController(dom);
@@ -300,6 +302,7 @@ cmrtRuntime.start({
 });
 
 window.addEventListener("beforeunload", () => {
+  toneFallbackUi.disconnect();
   toneInstrumentSettings.persistState();
   cmrtRuntime?.cleanup();
   tonePreview.clearPlaybackReset();
