@@ -3,3 +3,4 @@
 - cat2151のライブラリはrevision指定を禁止する。毎日重要なバグ修正があるため、revisionを固定してしまうとバグ修正を取り込めないため。
 - README.md編集禁止。README.ja.mdがSSoTであり、README.mdはREADME.ja.mdから生成されるので。
 - 450行overのソースについて、単一責任の原則に従いファイル分割すること。
+- bunを使う
