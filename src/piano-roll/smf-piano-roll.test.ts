@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildPianoRollDisplayData,
   formatPianoRollDebugSummary,
-  formatPianoRollNoteNumbers,
   getPianoRollPitchRowBoundaries,
   getPianoRollPitchRowMetrics,
   getPianoRollNoteNumbers,
@@ -62,15 +61,11 @@ describe("parseSmfToPianoRollData", () => {
     expect(getPianoRollNoteNumbers(fInversionData)).toEqual([69, 72, 77]);
     expect(getPianoRollNoteNumbers(fData)).not.toEqual(getPianoRollNoteNumbers(fInversionData));
     expect(formatPianoRollDebugSummary({ mml: "v11'f1a<c'", data: fData })).toBe(
-      "piano roll preview: mml=v11'f1a<c' note numbers=[65, 69, 72]"
+      "preview 最終出力 note number列: MML=\"v11'f1a<c'\" note number列=[65, 69, 72]"
     );
     expect(formatPianoRollDebugSummary({ mml: "v11'a1<cf'", data: fInversionData })).toBe(
-      "piano roll preview: mml=v11'a1<cf' note numbers=[69, 72, 77]"
+      "preview 最終出力 note number列: MML=\"v11'a1<cf'\" note number列=[69, 72, 77]"
     );
-  });
-
-  it("formats note number arrays exactly as the log displays them", () => {
-    expect(formatPianoRollNoteNumbers([60, 65, 65, 69])).toBe("[60, 65, 65, 69]");
   });
 
   it("offsets note rows below the horizontal grid line", () => {

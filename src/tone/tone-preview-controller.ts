@@ -84,6 +84,7 @@ export function createTonePreviewController(options: TonePreviewControllerOption
     try {
       await playToneChordMml({
         mml: buildTonePlaybackMml(source, options.getInstrumentMml()),
+        appendLog: options.appendLog,
         shouldContinue: () =>
           requestId === previewRequestId && options.getPlaybackBackend() === null,
       });

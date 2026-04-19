@@ -2,6 +2,7 @@ import { splitBassRootChordSegment } from "../chords/bass-root-mml.ts";
 import { chordToMml } from "../chords/chord-to-mml.ts";
 import { splitSanitizedMmlIntoChordSegments } from "../measures/measure-input.ts";
 import { sanitizeMmlForPost } from "../daw/post-config.ts";
+import { parseChordSegmentRelativePitches } from "../music/note-numbers.ts";
 
 export interface ChordMetrics {
   bassPitch: number | null;
@@ -61,51 +62,6 @@ function buildEvaluationInput(preamble: string, chordText: string): string {
   return preamble === "" ? chordText : `${preamble} ${chordText}`;
 }
 
-function parseChordSegmentPitches(chordSegment: string): number[] | null {
-  if (!/^'[^']*'$/.test(chordSegment)) {
-    return null;
-  }
-
-  const pitchClassByNote: Record<string, number> = {
-    c: 0,
-    d: 2,
-    e: 4,
-    f: 5,
-    g: 7,
-    a: 9,
-    b: 11,
-  };
-  const pitches: number[] = [];
-  let octaveOffset = 0;
-  let rest = chordSegment.slice(1, -1);
-
-  while (rest !== "") {
-    const match = rest.match(
-      /^(?<prefix>[<>]*)(?<note>[a-g])(?<accidental>[+#-]?)(?<lengthText>\d*)(?<dotText>\.*)/i
-    );
-    if (match?.groups === undefined || match[0] === "") {
-      return null;
-    }
-
-    for (const char of match.groups.prefix) {
-      octaveOffset += char === "<" ? 1 : -1;
-    }
-
-    const note = match.groups.note.toLowerCase();
-    const accidental = match.groups.accidental;
-    const accidentalOffset =
-      accidental === "+" || accidental === "#"
-        ? 1
-        : accidental === "-"
-          ? -1
-          : 0;
-    pitches.push(pitchClassByNote[note] + accidentalOffset + octaveOffset * 12);
-    rest = rest.slice(match[0].length);
-  }
-
-  return pitches;
-}
-
 function mean(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
@@ -137,13 +93,13 @@ function evaluateCandidate(
   }
 
   const split = splitBassRootChordSegment(chordSegments[0]);
-  const chordPitches = parseChordSegmentPitches(split.chordMml);
+  const chordPitches = parseChordSegmentRelativePitches(split.chordMml);
   if (chordPitches === null || chordPitches.length === 0) {
     return null;
   }
 
   const bassPitches =
-    split.bassMml === "" ? null : parseChordSegmentPitches(split.bassMml);
+    split.bassMml === "" ? null : parseChordSegmentRelativePitches(split.bassMml);
   if (split.bassMml !== "" && bassPitches === null) {
     return null;
   }

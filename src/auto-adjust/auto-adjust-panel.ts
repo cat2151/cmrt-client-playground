@@ -2,6 +2,7 @@ import {
   adjustChordProgression,
   type AutoAdjustResult,
 } from "./auto-adjust.ts";
+import { formatAutoAdjustNoteNumberLog } from "./auto-adjust-note-number-log.ts";
 import type { ChordProgressionEditor } from "../chords/chord-progression-highlight.ts";
 
 export interface AutoAdjustPanel {
@@ -29,14 +30,17 @@ export function createAutoAdjustPanel(options: {
   panelEl: HTMLElement;
   outputEl: Pick<ChordProgressionEditor, "value">;
   statusEl: HTMLElement;
+  appendLog?: (message: string) => void;
 }): AutoAdjustPanel {
   const { enabledEl, panelEl, outputEl, statusEl } = options;
   let latestRawInput: string | null = null;
   let latestResult: AutoAdjustResult | null = null;
+  let lastNoteNumberLog: string | null = null;
 
   function renderDisabled(): void {
     latestRawInput = null;
     latestResult = null;
+    lastNoteNumberLog = null;
     panelEl.hidden = true;
     outputEl.value = "";
     statusEl.textContent = "";
@@ -48,6 +52,18 @@ export function createAutoAdjustPanel(options: {
     outputEl.value = result.ok ? result.adjustedInput : rawInput;
     statusEl.textContent = formatDiagnostics(result);
     statusEl.dataset.state = result.ok ? "ok" : "error";
+
+    const noteNumberLog = formatAutoAdjustNoteNumberLog(result);
+    if (noteNumberLog === null) {
+      lastNoteNumberLog = null;
+      return;
+    }
+    if (noteNumberLog === lastNoteNumberLog) {
+      return;
+    }
+
+    options.appendLog?.(noteNumberLog);
+    lastNoteNumberLog = noteNumberLog;
   }
 
   function sync(rawInput: string): void {

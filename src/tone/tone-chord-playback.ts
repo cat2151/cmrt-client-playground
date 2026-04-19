@@ -8,6 +8,7 @@ import {
   extractToneMmlVolume,
   stripToneMmlVolumeTokens,
 } from "./tone-mml-volume.ts";
+import { formatTonePlaybackNoteNumberLog } from "./tone-playback-note-number-log.ts";
 
 const nodes = new SequencerNodes();
 const TONEJS_MML_TO_JSON_ASSET_ROOT = "vendor/tonejs-mml-to-json";
@@ -112,6 +113,7 @@ export async function initializeToneChordPlayback(): Promise<void> {
 export async function playToneChordMml(options: {
   mml: string;
   shouldContinue?: () => boolean;
+  appendLog?: (message: string) => void;
 }): Promise<number> {
   const [Tone, tonejsMmlToJson] = await Promise.all([
     loadToneModule(),
@@ -135,6 +137,8 @@ export async function playToneChordMml(options: {
   if (options.shouldContinue !== undefined && !options.shouldContinue()) {
     return 0;
   }
+
+  options.appendLog?.(formatTonePlaybackNoteNumberLog({ mml: options.mml, sequence }));
 
   await playSequence(Tone, nodes, sequence);
   if (options.shouldContinue !== undefined && !options.shouldContinue()) {

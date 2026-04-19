@@ -145,5 +145,5 @@ tmp/
 public/vendor/mmlabc-to-smf-rust/
 public/vendor/tonejs-mml-to-json/
 
-# Lock files (using bun.lockb instead)
+# Lock files (using bun.lock instead)
 package-lock.json

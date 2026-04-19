@@ -95,9 +95,11 @@ describe("convertChordProgressionToSmf", () => {
       data: parseSmfToPianoRollData(fInversionResult.smfData),
     });
 
-    expect(fSummary).toBe("piano roll preview: mml=v11'f1a<c' note numbers=[65, 69, 72]");
+    expect(fSummary).toBe(
+      "preview 最終出力 note number列: MML=\"v11'f1a<c'\" note number列=[65, 69, 72]"
+    );
     expect(fInversionSummary).toBe(
-      "piano roll preview: mml=v11'a1<cf' note numbers=[69, 72, 77]"
+      "preview 最終出力 note number列: MML=\"v11'a1<cf'\" note number列=[69, 72, 77]"
     );
   });
 
@@ -112,9 +114,11 @@ describe("convertChordProgressionToSmf", () => {
       );
     }
 
-    expect(fPreview.summary).toBe("piano roll preview: mml='f1a<c' note numbers=[65, 69, 72]");
+    expect(fPreview.summary).toBe(
+      "preview 最終出力 note number列: MML=\"'f1a<c'\" note number列=[65, 69, 72]"
+    );
     expect(fInversionPreview.summary).toBe(
-      "piano roll preview: mml='a1<cf' note numbers=[69, 72, 77]"
+      "preview 最終出力 note number列: MML=\"'a1<cf'\" note number列=[69, 72, 77]"
     );
   });
 });

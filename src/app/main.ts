@@ -66,6 +66,7 @@ const autoAdjustPanel = createAutoAdjustPanel({
   panelEl: dom.autoAdjustOutputPanelEl,
   outputEl: autoAdjustOutputEditor,
   statusEl: dom.autoAdjustStatusEl,
+  appendLog,
 });
 let onToneInstrumentMmlChange = (): void => {};
 const toneInstrumentSettings = createAppToneInstrumentSettings({

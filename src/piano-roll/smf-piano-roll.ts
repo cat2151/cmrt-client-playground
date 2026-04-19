@@ -1,4 +1,5 @@
 import { Midi } from "@tonejs/midi";
+import { formatLogValue, formatNoteNumbers } from "../music/note-numbers.ts";
 
 export interface PianoRollNote {
   pitch: number;
@@ -40,14 +41,16 @@ export function getPianoRollNoteNumbers(data: Pick<PianoRollData, "notes">): num
 }
 
 export function formatPianoRollNoteNumbers(noteNumbers: readonly number[]): string {
-  return `[${noteNumbers.join(", ")}]`;
+  return formatNoteNumbers(noteNumbers);
 }
 
 export function formatPianoRollDebugSummary(options: {
   mml: string;
   data: Pick<PianoRollData, "notes">;
 }): string {
-  return `piano roll preview: mml=${options.mml} note numbers=${formatPianoRollNoteNumbers(
+  return `preview 最終出力 note number列: MML=${formatLogValue(
+    options.mml
+  )} note number列=${formatPianoRollNoteNumbers(
     getPianoRollNoteNumbers(options.data)
   )}`;
 }

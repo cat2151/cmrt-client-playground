@@ -32,6 +32,7 @@ export async function playCurrentToneChord(options: {
   try {
     const durationSeconds = await playToneChordMml({
       mml: buildTonePlaybackMml(source, options.getInstrumentMml()),
+      appendLog: options.appendLog,
     });
     options.appendLog("Tone.js chord play を開始しました");
     options.setPlaybackBackend("tone");

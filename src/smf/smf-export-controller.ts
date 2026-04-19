@@ -5,6 +5,7 @@ import {
   createMmlabcToSmfConverter,
   SMF_EXPORT_FILENAME,
 } from "./smf-export.ts";
+import { formatSmfExportNoteNumberLog } from "./smf-export-note-number-log.ts";
 
 interface SmfExportControllerOptions {
   inputEl: ChordProgressionEditor;
@@ -50,6 +51,7 @@ export function createSmfExportController(options: SmfExportControllerOptions): 
       }
 
       options.appendLog(`コード進行 → MML(SMF export): ${result.mml}`);
+      options.appendLog(formatSmfExportNoteNumberLog(result.mml, result.smfData));
       downloadBinaryFile(SMF_EXPORT_FILENAME, result.smfData, "audio/midi");
       options.appendLog(
         `SMF export: ${SMF_EXPORT_FILENAME} (${result.smfData.byteLength} bytes)`
