@@ -1,4 +1,4 @@
-export const DEFAULT_MAX_CHORD_HISTORY_ENTRIES = 20;
+export const DEFAULT_MAX_CHORD_HISTORY_ENTRIES = 100;
 
 export type ChordHistoryParseResult =
   | { ok: true; history: string[] }
@@ -38,6 +38,13 @@ export function addChordHistoryEntry(
   }
 
   return normalizeChordHistory([entry, ...history], maxEntries);
+}
+
+export function shouldRememberChordHistoryInput(
+  input: string,
+  isFromSelectedTemplate: boolean
+): boolean {
+  return input.trim() !== "" && !isFromSelectedTemplate;
 }
 
 export function serializeChordHistory(history: readonly string[]): string {

@@ -4,6 +4,7 @@ import {
   normalizeChordHistory,
   parseChordHistoryStorage,
   serializeChordHistory,
+  shouldRememberChordHistoryInput,
 } from "./chord-history.ts";
 
 describe("chord history", () => {
@@ -20,6 +21,16 @@ describe("chord history", () => {
       "C",
       "Am",
     ]);
+  });
+
+  it("keeps up to 100 entries by default", () => {
+    const entries = Array.from({ length: 101 }, (_, index) => `entry ${index + 1}`);
+
+    const normalized = normalizeChordHistory(entries);
+
+    expect(normalized).toHaveLength(100);
+    expect(normalized[0]).toBe("entry 1");
+    expect(normalized[normalized.length - 1]).toBe("entry 100");
   });
 
   it("serializes normalized history as a JSON string for local storage", () => {
@@ -40,5 +51,15 @@ describe("chord history", () => {
       ok: false,
       message: "2 件目が文字列ではありません",
     });
+  });
+
+  it("remembers non-empty custom inputs but skips template inputs", () => {
+    expect(shouldRememberChordHistoryInput("Key=C Bass is root. IV", false)).toBe(
+      true
+    );
+    expect(shouldRememberChordHistoryInput("   ", false)).toBe(false);
+    expect(shouldRememberChordHistoryInput("Key=C Bass is root. IV", true)).toBe(
+      false
+    );
   });
 });

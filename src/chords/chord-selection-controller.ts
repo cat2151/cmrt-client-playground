@@ -8,6 +8,7 @@ import {
   addChordHistoryEntry,
   parseChordHistoryStorage,
   serializeChordHistory,
+  shouldRememberChordHistoryInput,
 } from "./chord-history.ts";
 import {
   formatChordTemplateInput,
@@ -316,6 +317,17 @@ export function createChordSelectionController(
     chordSearch.sync(getChordSearchState());
   }
 
+  function rememberCurrentCustomInput(): void {
+    if (
+      shouldRememberChordHistoryInput(
+        inputEl.value,
+        isCurrentInputFromSelectedTemplate()
+      )
+    ) {
+      rememberChordHistoryEntry(inputEl.value);
+    }
+  }
+
   function selectHistoryEntry(
     selectedChord: string,
     source: ToneChordPreviewInputSource,
@@ -325,6 +337,7 @@ export function createChordSelectionController(
       return;
     }
 
+    rememberCurrentCustomInput();
     selectedChordTemplateDegrees = null;
     inputEl.value = selectedChord;
     rememberChordHistoryEntry(inputEl.value);
@@ -340,6 +353,7 @@ export function createChordSelectionController(
     source: ToneChordPreviewInputSource,
     shouldFocusInput: boolean
   ): void {
+    rememberCurrentCustomInput();
     selectedChordTemplateDegrees = template.degrees;
     applySelectedChordTemplateToInput(source);
     chordSearch.sync(getChordSearchState());
@@ -359,6 +373,7 @@ export function createChordSelectionController(
     saveChordHistory,
     rememberChordHistoryEntry,
     toggleSearch(): void {
+      rememberCurrentCustomInput();
       chordSearch.toggle(getChordSearchState());
     },
     syncSearch(): void {
