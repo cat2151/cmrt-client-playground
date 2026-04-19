@@ -149,6 +149,10 @@ const tonePreview = createTonePreviewController({
 const chordSelection = createChordSelectionController({
   inputEl,
   chordHistorySelectEl: dom.chordHistorySelectEl,
+  chordSearchShellEl: dom.chordSearchShellEl,
+  chordSearchButtonEl: dom.chordSearchButtonEl,
+  chordSearchInputEl: dom.chordSearchInputEl,
+  chordSearchResultsEl: dom.chordSearchResultsEl,
   chordTemplateKeySelectEl: dom.chordTemplateKeySelectEl,
   chordTemplateSelectEl: dom.chordTemplateSelectEl,
   storage,
@@ -312,6 +316,15 @@ inputEl.addEventListener("input", () => {
 });
 dom.chordHistorySelectEl.addEventListener("change", () => {
   chordSelection.selectHistoryEntry();
+});
+dom.chordSearchButtonEl.addEventListener("click", () => {
+  chordSelection.toggleSearch();
+});
+dom.chordSearchInputEl.addEventListener("input", () => {
+  chordSelection.syncSearch();
+});
+dom.chordSearchInputEl.addEventListener("keydown", (event) => {
+  chordSelection.handleSearchKeydown(event);
 });
 dom.chordTemplateKeySelectEl.addEventListener("change", () => {
   chordSelection.applySelectedChordTemplateToInput("template");

@@ -1,4 +1,4 @@
-export type ToneChordPreviewInputSource = "textarea" | "template" | "other";
+export type ToneChordPreviewInputSource = "textarea" | "template" | "search" | "other";
 
 export function syncToneChordPreviewAfterInputChange(options: {
   isToneFallbackMode: boolean;
@@ -8,7 +8,9 @@ export function syncToneChordPreviewAfterInputChange(options: {
 }): void {
   if (
     options.isToneFallbackMode &&
-    (options.source === "textarea" || options.source === "template")
+    (options.source === "textarea" ||
+      options.source === "template" ||
+      options.source === "search")
   ) {
     options.cancelPreview();
   }

@@ -22,6 +22,7 @@
 
   textarea,
   input[type="number"],
+  input[type="search"],
   select,
   button,
   .measure-grid-cell-preview,
@@ -103,6 +104,53 @@
     color: #f8f8f2;
     background: #3e3d32;
     border-color: #75715e;
+  }
+
+  .chord-search-toggle,
+  .chord-search-input,
+  .chord-search-results,
+  .chord-search-result {
+    color: #f8f8f2;
+    background: #3e3d32;
+    border-color: #75715e;
+  }
+
+  .chord-search-toggle[aria-expanded="true"] {
+    color: #66d9ef;
+    border-color: #66d9ef;
+    box-shadow: inset 0 0 0 1px #66d9ef;
+  }
+
+  .chord-search-results__title,
+  .chord-search-results__empty {
+    color: #a59f85;
+  }
+
+  .chord-search-results__empty {
+    background: #272822;
+    border-color: #75715e;
+  }
+
+  .chord-search-result:hover,
+  .chord-search-result:focus-visible {
+    background: #49483e;
+    border-color: #66d9ef;
+  }
+
+  .chord-search-result--selected {
+    background: #253a24;
+    border-color: #a6e22e;
+    box-shadow: inset 0.25rem 0 0 #a6e22e;
+  }
+
+  .chord-search-result--selected:hover,
+  .chord-search-result--selected:focus-visible {
+    background: #30492b;
+    border-color: #c4f07a;
+  }
+
+  .chord-search-result__number {
+    color: #66d9ef;
   }
 
   .chord-toolbar-select:disabled {

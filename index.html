@@ -56,6 +56,34 @@
           >
             <option value="">chord history empty</option>
           </select>
+          <div id="chord-search-shell" class="chord-search-shell">
+            <button
+              id="chord-search-toggle"
+              class="chord-search-toggle"
+              type="button"
+              aria-label="検索"
+              aria-controls="chord-search-results"
+              aria-expanded="false"
+            >
+              <svg class="chord-search-toggle__icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M10.5 4a6.5 6.5 0 0 1 5.13 10.5l3.44 3.43a.75.75 0 0 1-1.06 1.06l-3.43-3.44A6.5 6.5 0 1 1 10.5 4Zm0 1.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" />
+              </svg>
+            </button>
+            <input
+              id="chord-search"
+              class="chord-search-input"
+              type="search"
+              aria-label="history/template search"
+              placeholder="4536 / IV-V-IIIm-VIm"
+              hidden
+            />
+            <div
+              id="chord-search-results"
+              class="chord-search-results"
+              aria-label="history/template search results"
+              hidden
+            ></div>
+          </div>
           <select
             id="chord-template-key"
             class="chord-toolbar-select chord-template-key-select"

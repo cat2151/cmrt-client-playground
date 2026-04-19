@@ -8,6 +8,10 @@ export interface AppDomElements {
   playStopButtonEl: HTMLButtonElement;
   chordAnalysisErrorBalloonEl: HTMLSpanElement;
   chordHistorySelectEl: HTMLSelectElement;
+  chordSearchShellEl: HTMLDivElement;
+  chordSearchButtonEl: HTMLButtonElement;
+  chordSearchInputEl: HTMLInputElement;
+  chordSearchResultsEl: HTMLDivElement;
   chordTemplateKeySelectEl: HTMLSelectElement;
   chordTemplateSelectEl: HTMLSelectElement;
   inputEditorEl: HTMLDivElement;
@@ -53,6 +57,10 @@ export function getAppDomElements(): AppDomElements {
     playStopButtonEl: getElement("play-stop"),
     chordAnalysisErrorBalloonEl: getElement("chord-analysis-error-balloon"),
     chordHistorySelectEl: getElement("chord-history"),
+    chordSearchShellEl: getElement("chord-search-shell"),
+    chordSearchButtonEl: getElement("chord-search-toggle"),
+    chordSearchInputEl: getElement("chord-search"),
+    chordSearchResultsEl: getElement("chord-search-results"),
     chordTemplateKeySelectEl: getElement("chord-template-key"),
     chordTemplateSelectEl: getElement("chord-template"),
     inputEditorEl: getElement("input"),

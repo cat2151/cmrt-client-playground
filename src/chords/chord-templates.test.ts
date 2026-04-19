@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  chordDegreeSequenceContains,
+  formatChordDegreeNumberSearchLabel,
+  formatChordDegreeRomanSearchLabel,
   formatChordTemplateInput,
   formatChordTemplateOptionLabel,
+  getChordDegreeSearchTokens,
   parseChordTemplates,
 } from "./chord-templates.ts";
 
@@ -68,6 +72,37 @@ describe("chord templates", () => {
     );
     expect(formatChordTemplateInput("I-V-VIm-IV", "F#")).toBe(
       "Key=F# Bass is root. I-V-VIm-IV"
+    );
+  });
+
+  it("normalizes degree search tokens from numbers and roman numerals", () => {
+    expect(getChordDegreeSearchTokens("4 5 3 6")).toEqual(["4", "5", "3", "6"]);
+    expect(getChordDegreeSearchTokens("4536")).toEqual(["4", "5", "3", "6"]);
+    expect(getChordDegreeSearchTokens("IV-V-IIIm-VIm")).toEqual([
+      "4",
+      "5",
+      "3",
+      "6",
+    ]);
+    expect(getChordDegreeSearchTokens("Key=C Bass is root. bVII-IV-I")).toEqual([
+      "b7",
+      "4",
+      "1",
+    ]);
+  });
+
+  it("formats normalized degree search labels", () => {
+    const tokens = ["4", "5", "3", "6"];
+    expect(formatChordDegreeNumberSearchLabel(tokens)).toBe("4-5-3-6");
+    expect(formatChordDegreeRomanSearchLabel(tokens)).toBe("IV-V-III-VI");
+  });
+
+  it("matches degree search tokens by contiguous subsequence", () => {
+    expect(chordDegreeSequenceContains(["1", "4", "5", "1"], ["4", "5"])).toBe(
+      true
+    );
+    expect(chordDegreeSequenceContains(["1", "4", "1", "5"], ["4", "5"])).toBe(
+      false
     );
   });
 });

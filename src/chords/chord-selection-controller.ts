@@ -15,6 +15,10 @@ import {
   parseChordTemplates,
   type ChordTemplate,
 } from "./chord-templates.ts";
+import {
+  createChordSelectionSearchController,
+  type ChordTemplateLoadState,
+} from "./chord-selection-search.ts";
 import type { ChordProgressionEditor } from "./chord-progression-highlight.ts";
 import type { LocalStorageAccess } from "../app/app-storage-io.ts";
 import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-sync.ts";
@@ -22,6 +26,10 @@ import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-syn
 interface ChordSelectionControllerOptions {
   inputEl: ChordProgressionEditor;
   chordHistorySelectEl: HTMLSelectElement;
+  chordSearchShellEl: HTMLDivElement;
+  chordSearchButtonEl: HTMLButtonElement;
+  chordSearchInputEl: HTMLInputElement;
+  chordSearchResultsEl: HTMLDivElement;
   chordTemplateKeySelectEl: HTMLSelectElement;
   chordTemplateSelectEl: HTMLSelectElement;
   storage: LocalStorageAccess;
@@ -37,6 +45,10 @@ export interface ChordSelectionController {
   loadStoredChordHistory(): void;
   saveChordHistory(): void;
   rememberChordHistoryEntry(input: string): void;
+  toggleSearch(): void;
+  syncSearch(): void;
+  closeSearch(): void;
+  handleSearchKeydown(event: KeyboardEvent): void;
   isCurrentInputFromSelectedTemplate(): boolean;
   applySelectedChordTemplateToInput(source: ToneChordPreviewInputSource): void;
   selectHistoryEntry(): void;
@@ -49,6 +61,10 @@ export function createChordSelectionController(
   const {
     inputEl,
     chordHistorySelectEl,
+    chordSearchShellEl,
+    chordSearchButtonEl,
+    chordSearchInputEl,
+    chordSearchResultsEl,
     chordTemplateKeySelectEl,
     chordTemplateSelectEl,
     storage,
@@ -58,11 +74,32 @@ export function createChordSelectionController(
 
   let chordHistory: string[] = [];
   let chordTemplates: ChordTemplate[] = [];
-  let chordTemplateLoadState: "loading" | "ready" | "error" = "loading";
+  let chordTemplateLoadState: ChordTemplateLoadState = "loading";
   let selectedChordTemplateDegrees: string | null = null;
+
+  const chordSearch = createChordSelectionSearchController({
+    elements: {
+      shellEl: chordSearchShellEl,
+      buttonEl: chordSearchButtonEl,
+      inputEl: chordSearchInputEl,
+      resultsEl: chordSearchResultsEl,
+    },
+    onSelectHistory: (entry) => selectHistoryEntry(entry, "search", false),
+    onSelectTemplate: (template) => selectTemplate(template, "search", false),
+  });
 
   function areStringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+
+  function getChordSearchState() {
+    return {
+      history: chordHistory,
+      templates: chordTemplates,
+      templateLoadState: chordTemplateLoadState,
+      currentInput: inputEl.value,
+      selectedTemplateDegrees: selectedChordTemplateDegrees,
+    };
   }
 
   function formatChordHistoryOptionLabel(value: string): string {
@@ -184,6 +221,7 @@ export function createChordSelectionController(
   async function loadChordTemplates(): Promise<void> {
     chordTemplateLoadState = "loading";
     renderTemplateSelect();
+    chordSearch.sync(getChordSearchState());
 
     let response: Response;
     try {
@@ -192,6 +230,7 @@ export function createChordSelectionController(
       chordTemplates = [];
       chordTemplateLoadState = "error";
       renderTemplateSelect();
+      chordSearch.sync(getChordSearchState());
       appendLog(`ERROR: template JSON の fetch に失敗しました: ${String(error)}`);
       return;
     }
@@ -200,6 +239,7 @@ export function createChordSelectionController(
       chordTemplates = [];
       chordTemplateLoadState = "error";
       renderTemplateSelect();
+      chordSearch.sync(getChordSearchState());
       appendLog(
         `ERROR: template JSON の fetch に失敗しました: HTTP ${response.status} ${response.statusText}`
       );
@@ -213,6 +253,7 @@ export function createChordSelectionController(
       chordTemplates = [];
       chordTemplateLoadState = "error";
       renderTemplateSelect();
+      chordSearch.sync(getChordSearchState());
       appendLog(`ERROR: template JSON を JSON として読み取れませんでした: ${String(error)}`);
       return;
     }
@@ -222,6 +263,7 @@ export function createChordSelectionController(
       chordTemplates = [];
       chordTemplateLoadState = "error";
       renderTemplateSelect();
+      chordSearch.sync(getChordSearchState());
       appendLog(`ERROR: template JSON の形式が不正です: ${parsed.message}`);
       return;
     }
@@ -229,6 +271,7 @@ export function createChordSelectionController(
     chordTemplates = parsed.templates;
     chordTemplateLoadState = "ready";
     renderTemplateSelect();
+    chordSearch.sync(getChordSearchState());
     appendLog(`template JSON を読み込みました: ${chordTemplates.length} 件`);
   }
 
@@ -241,6 +284,7 @@ export function createChordSelectionController(
     if (storedValue === null) {
       chordHistory = [];
       renderHistorySelect();
+      chordSearch.sync(getChordSearchState());
       return;
     }
 
@@ -249,23 +293,59 @@ export function createChordSelectionController(
       appendLog(`ERROR: chord history の復帰に失敗しました: ${parsed.message}`);
       chordHistory = [];
       renderHistorySelect();
+      chordSearch.sync(getChordSearchState());
       return;
     }
 
     chordHistory = parsed.history;
     renderHistorySelect();
+    chordSearch.sync(getChordSearchState());
   }
 
   function rememberChordHistoryEntry(input: string): void {
     const nextHistory = addChordHistoryEntry(chordHistory, input);
     if (areStringArraysEqual(chordHistory, nextHistory)) {
       renderHistorySelect();
+      chordSearch.sync(getChordSearchState());
       return;
     }
 
     chordHistory = nextHistory;
     saveChordHistory();
     renderHistorySelect();
+    chordSearch.sync(getChordSearchState());
+  }
+
+  function selectHistoryEntry(
+    selectedChord: string,
+    source: ToneChordPreviewInputSource,
+    shouldFocusInput: boolean
+  ): void {
+    if (selectedChord === "") {
+      return;
+    }
+
+    selectedChordTemplateDegrees = null;
+    inputEl.value = selectedChord;
+    rememberChordHistoryEntry(inputEl.value);
+    onInputChange(source);
+    chordSearch.sync(getChordSearchState());
+    if (shouldFocusInput) {
+      inputEl.focus();
+    }
+  }
+
+  function selectTemplate(
+    template: ChordTemplate,
+    source: ToneChordPreviewInputSource,
+    shouldFocusInput: boolean
+  ): void {
+    selectedChordTemplateDegrees = template.degrees;
+    applySelectedChordTemplateToInput(source);
+    chordSearch.sync(getChordSearchState());
+    if (shouldFocusInput) {
+      inputEl.focus();
+    }
   }
 
   return {
@@ -278,19 +358,22 @@ export function createChordSelectionController(
     loadStoredChordHistory,
     saveChordHistory,
     rememberChordHistoryEntry,
+    toggleSearch(): void {
+      chordSearch.toggle(getChordSearchState());
+    },
+    syncSearch(): void {
+      chordSearch.sync(getChordSearchState());
+    },
+    closeSearch(): void {
+      chordSearch.closeAndFocusToggle();
+    },
+    handleSearchKeydown(event: KeyboardEvent): void {
+      chordSearch.handleInputKeydown(event);
+    },
     isCurrentInputFromSelectedTemplate,
     applySelectedChordTemplateToInput,
     selectHistoryEntry(): void {
-      const selectedChord = chordHistorySelectEl.value;
-      if (selectedChord === "") {
-        return;
-      }
-
-      selectedChordTemplateDegrees = null;
-      inputEl.value = selectedChord;
-      rememberChordHistoryEntry(inputEl.value);
-      onInputChange();
-      inputEl.focus();
+      selectHistoryEntry(chordHistorySelectEl.value, "other", true);
     },
     selectTemplate(): void {
       const selectedTemplate = chordTemplateSelectEl.value;
@@ -298,8 +381,7 @@ export function createChordSelectionController(
         return;
       }
 
-      selectedChordTemplateDegrees = selectedTemplate;
-      applySelectedChordTemplateToInput("template");
+      selectTemplate({ degrees: selectedTemplate, description: "" }, "template", true);
       chordTemplateSelectEl.focus();
     },
   };
