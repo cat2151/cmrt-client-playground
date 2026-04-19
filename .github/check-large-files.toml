@@ -1,0 +1,4 @@
+[scan]
+exclude_files = [
+    "src/vendor/chord2mml.mjs",
+]
