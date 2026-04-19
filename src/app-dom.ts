@@ -21,7 +21,7 @@ export interface AppDomElements {
   bassTrackEl: HTMLInputElement;
   autoAdjustChordsEl: HTMLInputElement;
   autoAdjustOutputPanelEl: HTMLDivElement;
-  autoAdjustOutputEl: HTMLTextAreaElement;
+  autoAdjustOutputEditorEl: HTMLDivElement;
   autoAdjustStatusEl: HTMLParagraphElement;
   gridTrackStartEl: HTMLInputElement;
   gridTrackCountEl: HTMLInputElement;
@@ -66,7 +66,7 @@ export function getAppDomElements(): AppDomElements {
     bassTrackEl: getElement("bass-track"),
     autoAdjustChordsEl: getElement("auto-adjust-chords"),
     autoAdjustOutputPanelEl: getElement("auto-adjust-output-panel"),
-    autoAdjustOutputEl: getElement("auto-adjust-output"),
+    autoAdjustOutputEditorEl: getElement("auto-adjust-output-editor"),
     autoAdjustStatusEl: getElement("auto-adjust-status"),
     gridTrackStartEl: getElement("grid-track-start"),
     gridTrackCountEl: getElement("grid-track-count"),

@@ -57,10 +57,13 @@ const dawClient = DawClient.localDefault();
 const inputEl = createChordProgressionEditor({
   element: dom.inputEditorEl,
 });
+const autoAdjustOutputEditor = createChordProgressionEditor({
+  element: dom.autoAdjustOutputEditorEl,
+});
 const autoAdjustPanel = createAutoAdjustPanel({
   enabledEl: dom.autoAdjustChordsEl,
   panelEl: dom.autoAdjustOutputPanelEl,
-  outputEl: dom.autoAdjustOutputEl,
+  outputEl: autoAdjustOutputEditor,
   statusEl: dom.autoAdjustStatusEl,
 });
 

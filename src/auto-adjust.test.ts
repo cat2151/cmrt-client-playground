@@ -16,6 +16,7 @@ describe("adjustChordProgression", () => {
     expect(result.adjustedInput).not.toBe(input);
     expect(result.maxBassJump).not.toBeNull();
     expect(result.maxBassJump).toBeLessThanOrEqual(5);
+    expect(result.summary).toMatch(/^自動ボイシング: 4 chords /);
     expect(chordToMml(result.adjustedInput)).not.toBeNull();
   });
 

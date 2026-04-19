@@ -158,7 +158,7 @@ function summarizeResult(
   maxBassJump: number | null,
   maxTopJump: number | null
 ): string {
-  return `自動調整: ${chordCount} chords / bass max jump ${formatJump(
+  return `自動ボイシング: ${chordCount} chords / bass max jump ${formatJump(
     maxBassJump
   )} / top max jump ${formatJump(maxTopJump)}`;
 }

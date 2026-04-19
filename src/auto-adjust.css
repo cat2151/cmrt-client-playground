@@ -23,30 +23,19 @@
   margin-bottom: 0.35rem;
 }
 
-.auto-adjust-output textarea {
+.auto-adjust-output .chord-input-editor {
+  margin-bottom: 0;
+}
+
+.auto-adjust-output .chord-input-editor__input,
+.auto-adjust-output .chord-input-editor__overlay,
+.auto-adjust-output .chord-input-editor__textarea {
   min-height: 4.5rem;
-  padding: 0.45rem 0.55rem;
-  border: 1px solid #3e3d32;
-  border-radius: 0.5rem;
-  background: #272822;
-  color: #f8f8f2;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
-  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+.auto-adjust-output .chord-input-editor__overlay,
+.auto-adjust-output .chord-input-editor__textarea {
   font-size: 1rem;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.auto-adjust-output textarea:focus {
-  border-color: #66d9ef;
-  outline: none;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.04),
-    0 0 0 2px rgb(102 217 239 / 0.18);
-}
-
-.auto-adjust-output textarea::selection {
-  background: rgb(73 72 62 / 0.8);
 }
 
 .auto-adjust-output__status {

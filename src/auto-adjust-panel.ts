@@ -2,6 +2,7 @@ import {
   adjustChordProgression,
   type AutoAdjustResult,
 } from "./auto-adjust.ts";
+import type { ChordProgressionEditor } from "./chord-progression-highlight.ts";
 
 export interface AutoAdjustPanel {
   get enabled(): boolean;
@@ -26,7 +27,7 @@ function formatDiagnostics(result: AutoAdjustResult): string {
 export function createAutoAdjustPanel(options: {
   enabledEl: HTMLInputElement;
   panelEl: HTMLElement;
-  outputEl: HTMLTextAreaElement;
+  outputEl: Pick<ChordProgressionEditor, "value">;
   statusEl: HTMLElement;
 }): AutoAdjustPanel {
   const { enabledEl, panelEl, outputEl, statusEl } = options;
