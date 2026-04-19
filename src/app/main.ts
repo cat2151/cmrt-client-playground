@@ -40,6 +40,7 @@ import { createSmfExportController } from "../smf/smf-export-controller.ts";
 import { STARTUP_CONNECTING_OVERLAY } from "../startup/startup-overlay.ts";
 import { createStartupOverlayController } from "../startup/startup-overlay-controller.ts";
 import { playToneChordMml } from "../tone/tone-chord-playback.ts";
+import { buildTonePlaybackMml } from "../tone/tone-playback-mml.ts";
 import { createTonePreviewController } from "../tone/tone-preview-controller.ts";
 import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-sync.ts";
 
@@ -334,7 +335,9 @@ dom.playStartButtonEl.addEventListener("click", async () => {
     }
 
     try {
-      const durationSeconds = await playToneChordMml({ mml: source.chordMml });
+      const durationSeconds = await playToneChordMml({
+        mml: buildTonePlaybackMml(source),
+      });
       appendLog("Tone.js chord play を開始しました");
       setPlaybackBackend("tone");
       tonePreview.schedulePlaybackReset(durationSeconds);

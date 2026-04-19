@@ -8,6 +8,7 @@ import {
   syncToneChordPreviewAfterInputChange,
   type ToneChordPreviewInputSource,
 } from "./tone-chord-preview-sync.ts";
+import { buildTonePlaybackMml } from "./tone-playback-mml.ts";
 
 interface TonePreviewControllerOptions {
   getInput: () => string;
@@ -81,7 +82,7 @@ export function createTonePreviewController(options: TonePreviewControllerOption
 
     try {
       await playToneChordMml({
-        mml: source.chordMml,
+        mml: buildTonePlaybackMml(source),
         shouldContinue: () =>
           requestId === previewRequestId && options.getPlaybackBackend() === null,
       });

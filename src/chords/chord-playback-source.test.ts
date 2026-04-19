@@ -27,4 +27,16 @@ describe("buildChordPlaybackSource", () => {
       removedTokens: ["v11"],
     });
   });
+
+  it("keeps generated bass MML separate from chord playback MML", () => {
+    expect(buildChordPlaybackSource("Key=C Bass is root. I")).toEqual({
+      ok: true,
+      input: "Key=C Bass is root. I",
+      mml: "v11'>c1<ceg'",
+      sanitizedMml: "'>c1<ceg'",
+      chordMml: "'c1eg'",
+      bassMml: "'>c1'",
+      removedTokens: ["v11"],
+    });
+  });
 });
