@@ -1,5 +1,5 @@
 // vendored from https://github.com/cat2151/chord2mml/blob/main/dist/chord2mml.mjs
-// recorded_sha: 8f0223173f2ff662a47f515306b130b502f4424f
+// recorded_sha: c4596d41f23bac2ece9a5bd88deac2670ddb390a
 
 // src/chord2mml_chord2ast.mjs
 function getOffsetIonian(degree) {
