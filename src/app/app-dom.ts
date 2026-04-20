@@ -40,6 +40,7 @@ export interface AppDomElements {
   measureGridPanelEl: HTMLElement;
   measureGridHeadEl: HTMLTableSectionElement;
   measureGridBodyEl: HTMLTableSectionElement;
+  dawStatusEl: HTMLParagraphElement;
   logToggleButtonEl: HTMLButtonElement;
   smfExportButtonEl: HTMLButtonElement;
   logEl: HTMLDivElement;
@@ -96,6 +97,7 @@ export function getAppDomElements(): AppDomElements {
     measureGridPanelEl: getElement("measure-grid-panel"),
     measureGridHeadEl: getElement("measure-grid-head"),
     measureGridBodyEl: getElement("measure-grid-body"),
+    dawStatusEl: getElement("daw-status"),
     logToggleButtonEl: getElement("log-toggle"),
     smfExportButtonEl: getElement("smf-export"),
     logEl: getElement("log"),

@@ -26,6 +26,13 @@ export function setMeasureGridCellHighlight(
   shellEl.classList.toggle("measure-grid-cell--target-both", highlight === "both");
 }
 
+export function setMeasureGridCellPlayback(
+  shellEl: HTMLDivElement,
+  isPlaying: boolean
+): void {
+  shellEl.classList.toggle("measure-grid-cell--playing", isPlaying);
+}
+
 export function setMeasureGridCellStatus(
   cell: MeasureGridRenderedCellElements,
   status: "idle" | "loading" | "syncing" | "error",

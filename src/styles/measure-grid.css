@@ -74,6 +74,16 @@
   overflow-x: auto;
 }
 
+.daw-status-line {
+  margin: 0.5rem 0 0;
+  overflow: hidden;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .measure-grid-table {
   width: 100%;
   border-collapse: collapse;
@@ -91,6 +101,11 @@
   background: #f9fafb;
   font-size: 0.9rem;
   text-align: left;
+}
+
+.measure-grid-table th.measure-grid-measure-header--playing {
+  background: #fef9c3;
+  box-shadow: inset 0 -3px 0 #eab308;
 }
 
 .measure-grid-corner-header {
@@ -193,6 +208,13 @@
   box-shadow:
     inset 0 0 0 2px #2563eb,
     inset 0 0 0 4px #16a34a;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--playing .measure-grid-cell-preview,
+.measure-grid-cell-shell.measure-grid-cell--playing .measure-grid-cell {
+  background: #fefce8;
+  outline: 2px solid #eab308;
+  outline-offset: -2px;
 }
 
 .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell-preview,

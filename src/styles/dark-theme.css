@@ -199,8 +199,28 @@
     background: linear-gradient(180deg, #ceb5ff, #ae81ff);
   }
 
+  .piano-roll__play-measure {
+    background: rgb(244 208 63 / 0.18);
+  }
+
+  .piano-roll__playhead {
+    background: #ff5c57;
+    box-shadow: 0 0 0 1px rgb(39 40 34 / 0.9);
+  }
+
   .measure-grid-table th {
     background: #49483e;
+  }
+
+  .measure-grid-table th.measure-grid-measure-header--playing {
+    background: #5a5122;
+    box-shadow: inset 0 -3px 0 #f4d03f;
+  }
+
+  .measure-grid-cell-shell.measure-grid-cell--playing .measure-grid-cell-preview,
+  .measure-grid-cell-shell.measure-grid-cell--playing .measure-grid-cell {
+    background: #4a4528;
+    outline-color: #f4d03f;
   }
 
   .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell-preview,

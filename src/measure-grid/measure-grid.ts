@@ -1,12 +1,9 @@
-import { DawClient, dawClientErrorMessage } from "../daw/daw-client.ts";
-import { createDebouncedCallback } from "../utils/debounce.ts";
+import { dawClientErrorMessage, type DawClient } from "../daw/daw-client.ts";
 import {
-  focusMeasureGridInput,
   setMeasureGridCellHighlight,
+  setMeasureGridCellPlayback,
   setMeasureGridCellStatus,
   setMeasureGridCellValue,
-  syncMeasureGridCellExpandedWidth,
-  syncMeasureGridCellPreview,
   type MeasureGridRenderedCellElements,
 } from "./measure-grid-cell.ts";
 import {
@@ -21,15 +18,16 @@ import {
   type MeasureGridElements,
 } from "./measure-grid-controls.ts";
 import {
-  formatMeasureGridMeasureLabel,
-  formatMeasureGridTrackLabel,
-} from "./measure-grid-labels.ts";
-import { getMeasureGridArrowNavigationTarget } from "./measure-grid-navigation.ts";
-import {
   getMeasureGridCellHighlight,
   type MeasureGridHighlightTargets,
 } from "./measure-grid-targets.ts";
-import { getMmlsCellValue, isStaleMeasureGridPostSync } from "./measure-grid-sync.ts";
+import { getMeasureGridCellKey } from "./measure-grid-keys.ts";
+import {
+  renderMeasureGrid,
+  type MeasureGridRowHeaderAction,
+  type MeasureGridSyncer,
+} from "./measure-grid-render.ts";
+import { getMmlsCellValue } from "./measure-grid-sync.ts";
 
 export {
   expandMeasureGridConfigToInclude,
@@ -52,20 +50,11 @@ interface CreateMeasureGridControllerOptions {
   elements: MeasureGridElements;
   dawClient: DawClient;
   appendLog: (message: string) => void;
-  getRowHeaderActions?: (track: number) => {
-    label: string;
-    ariaLabel: string;
-    onClick: () => void;
-    disabled?: boolean;
-  }[];
+  getRowHeaderActions?: (track: number) => MeasureGridRowHeaderAction[];
   autoSendDelayMs: number;
   maxAutoExpandedTrackCount: number;
   maxAutoExpandedMeasureCount: number;
   initialConfig: MeasureGridConfig;
-}
-
-function getMeasureGridCellKey(track: number, measure: number): string {
-  return `${track}:${measure}`;
 }
 
 export function createMeasureGridController(
@@ -76,6 +65,7 @@ export function createMeasureGridController(
   render(): void;
   applyConfig(config: MeasureGridConfig): void;
   setHighlightTargets(targets: MeasureGridHighlightTargets): void;
+  setPlaybackMeasure(measure: number | null): void;
   reflectValue(track: number, measure: number, mml: string): void;
   loadFromCmrt(): Promise<void>;
 } {
@@ -92,10 +82,8 @@ export function createMeasureGridController(
   const measureGridValues = new Map<string, string>();
   const measureGridInputs = new Map<string, HTMLInputElement>();
   const measureGridRenderedCells = new Map<string, MeasureGridRenderedCellElements>();
-  const measureGridSyncers = new Map<
-    string,
-    ReturnType<typeof createDebouncedCallback>
-  >();
+  const measureGridMeasureHeaders = new Map<number, HTMLTableCellElement>();
+  const measureGridSyncers = new Map<string, MeasureGridSyncer>();
   let measureGridConfig = { ...initialConfig };
   let lastFetchedEtag: string | null = null;
   let lastErrorMessage: string | null = null;
@@ -104,13 +92,7 @@ export function createMeasureGridController(
     chordTarget: null,
     bassTarget: null,
   };
-
-  function cancelMeasureGridSyncers(): void {
-    for (const syncer of measureGridSyncers.values()) {
-      syncer.cancel();
-    }
-    measureGridSyncers.clear();
-  }
+  let playbackMeasure: number | null = null;
 
   function syncControls(): void {
     syncMeasureGridControls(elements, measureGridConfig);
@@ -132,184 +114,35 @@ export function createMeasureGridController(
     }
   }
 
+  function updateMeasureGridPlaybackMeasure(): void {
+    for (const [measure, headerEl] of measureGridMeasureHeaders.entries()) {
+      headerEl.classList.toggle(
+        "measure-grid-measure-header--playing",
+        measure === playbackMeasure
+      );
+    }
+    for (const [key, cell] of measureGridRenderedCells.entries()) {
+      const [, measureText] = key.split(":");
+      setMeasureGridCellPlayback(cell.shellEl, Number(measureText) === playbackMeasure);
+    }
+  }
+
   function render(): void {
-    cancelMeasureGridSyncers();
-    measureGridInputs.clear();
-    measureGridRenderedCells.clear();
-    elements.headEl.textContent = "";
-    elements.bodyEl.textContent = "";
-
-    const visibleTracks = getVisibleTracks(measureGridConfig);
-    const visibleMeasures = getVisibleMeasures(measureGridConfig);
-    const headRow = document.createElement("tr");
-    const cornerCell = document.createElement("th");
-    cornerCell.className = "measure-grid-corner-header";
-    cornerCell.textContent = "track \\ meas";
-    headRow.append(cornerCell);
-
-    for (const measure of visibleMeasures) {
-      const measureCell = document.createElement("th");
-      measureCell.scope = "col";
-      measureCell.textContent = formatMeasureGridMeasureLabel(measure);
-      headRow.append(measureCell);
-    }
-
-    elements.headEl.append(headRow);
-
-    for (const track of visibleTracks) {
-      const row = document.createElement("tr");
-      const rowHeader = document.createElement("th");
-      const rowHeaderContent = document.createElement("div");
-      const rowHeaderTitle = document.createElement("span");
-      rowHeader.scope = "row";
-      rowHeader.className = "measure-grid-row-header";
-      rowHeaderContent.className = "measure-grid-row-header__content";
-      rowHeaderTitle.className = "measure-grid-row-header__title";
-      rowHeaderTitle.textContent = formatMeasureGridTrackLabel(track);
-      rowHeaderContent.append(rowHeaderTitle);
-
-      const rowHeaderActions = getRowHeaderActions?.(track) ?? [];
-      if (rowHeaderActions.length > 0) {
-        const actionsEl = document.createElement("div");
-        actionsEl.className = "measure-grid-row-header__actions";
-        for (const action of rowHeaderActions) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "measure-grid-row-header__action";
-          button.textContent = action.label;
-          button.setAttribute("aria-label", action.ariaLabel);
-          button.title = action.ariaLabel;
-          button.disabled = action.disabled ?? false;
-          if (!button.disabled) {
-            button.addEventListener("click", action.onClick);
-          }
-          actionsEl.append(button);
-        }
-        rowHeaderContent.append(actionsEl);
-      }
-
-      rowHeader.append(rowHeaderContent);
-      row.append(rowHeader);
-
-      for (const measure of visibleMeasures) {
-        const cell = document.createElement("td");
-        const shellEl = document.createElement("div");
-        const previewEl = document.createElement("div");
-        const input = document.createElement("input");
-        const key = getMeasureGridCellKey(track, measure);
-        let editVersion = 0;
-        const renderedCell: MeasureGridRenderedCellElements = {
-          shellEl,
-          previewEl,
-          inputEl: input,
-        };
-        const syncer = createDebouncedCallback(async () => {
-          const sentValue = input.value;
-          const sentEditVersion = editVersion;
-          setMeasureGridCellStatus(
-            renderedCell,
-            "syncing",
-            `POST ${track}:${measure} を cmrt と同期中`
-          );
-
-          const result = await dawClient.postMml(track, measure, sentValue);
-          const isStaleResponse = isStaleMeasureGridPostSync({
-            sentValue,
-            currentValue: input.value,
-            sentEditVersion,
-            currentEditVersion: editVersion,
-          });
-          if (isStaleResponse) {
-            return;
-          }
-
-          if (result !== undefined) {
-            const errorMessage = dawClientErrorMessage(result);
-            setMeasureGridCellStatus(renderedCell, "error", errorMessage);
-            appendLog(`ERROR: grid POST ${track}:${measure} に失敗しました: ${errorMessage}`);
-            return;
-          }
-
-          measureGridValues.set(key, sentValue);
-          input.dataset.dirty = "false";
-          setMeasureGridCellStatus(renderedCell, "idle", `POST ${track}:${measure} OK`);
-          appendLog(`grid POST ${track}:${measure} OK: "${sentValue}"`);
-        }, autoSendDelayMs);
-
-        shellEl.className = "measure-grid-cell-shell";
-        previewEl.className = "measure-grid-cell-preview";
-        previewEl.setAttribute("aria-hidden", "true");
-        input.className = "measure-grid-cell";
-        input.type = "text";
-        input.dataset.dirty = "false";
-        input.setAttribute(
-          "aria-label",
-          `${formatMeasureGridTrackLabel(track)} ${formatMeasureGridMeasureLabel(measure)}`
-        );
-        setMeasureGridCellValue(renderedCell, measureGridValues.get(key) ?? "");
-        setMeasureGridCellHighlight(
-          shellEl,
-          getMeasureGridCellHighlight(track, measure, measureGridHighlightTargets)
-        );
-        input.addEventListener("input", () => {
-          editVersion += 1;
-          measureGridValues.set(key, input.value);
-          syncMeasureGridCellPreview(previewEl, input.value);
-          syncMeasureGridCellExpandedWidth(shellEl, input.value);
-          input.dataset.dirty = "true";
-          setMeasureGridCellStatus(
-            renderedCell,
-            "syncing",
-            `POST ${track}:${measure} を予約しました`
-          );
-          syncer.schedule();
-        });
-        input.addEventListener("keydown", (event) => {
-          const navigationTarget = getMeasureGridArrowNavigationTarget({
-            key: event.key,
-            track,
-            measure,
-            value: input.value,
-            selectionStart: input.selectionStart,
-            selectionEnd: input.selectionEnd,
-            visibleTracks,
-            visibleMeasures,
-            isComposing: event.isComposing,
-            altKey: event.altKey,
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
-            shiftKey: event.shiftKey,
-          });
-          if (navigationTarget === null) {
-            return;
-          }
-
-          const nextInput = measureGridInputs.get(
-            getMeasureGridCellKey(navigationTarget.track, navigationTarget.measure)
-          );
-          if (nextInput === undefined) {
-            return;
-          }
-
-          event.preventDefault();
-          focusMeasureGridInput(
-            nextInput,
-            navigationTarget.selectionBehavior,
-            navigationTarget.caretOffset,
-            navigationTarget.caretOffsetOrigin
-          );
-        });
-
-        measureGridInputs.set(key, input);
-        measureGridRenderedCells.set(key, renderedCell);
-        measureGridSyncers.set(key, syncer);
-        shellEl.append(previewEl, input);
-        cell.append(shellEl);
-        row.append(cell);
-      }
-
-      elements.bodyEl.append(row);
-    }
+    renderMeasureGrid({
+      elements,
+      config: measureGridConfig,
+      values: measureGridValues,
+      inputs: measureGridInputs,
+      renderedCells: measureGridRenderedCells,
+      measureHeaders: measureGridMeasureHeaders,
+      syncers: measureGridSyncers,
+      highlightTargets: measureGridHighlightTargets,
+      playbackMeasure,
+      dawClient,
+      appendLog,
+      getRowHeaderActions,
+      autoSendDelayMs,
+    });
   }
 
   function applyConfig(config: MeasureGridConfig): void {
@@ -324,6 +157,15 @@ export function createMeasureGridController(
   function setHighlightTargets(targets: MeasureGridHighlightTargets): void {
     measureGridHighlightTargets = targets;
     updateMeasureGridHighlights();
+  }
+
+  function setPlaybackMeasure(measure: number | null): void {
+    if (playbackMeasure === measure) {
+      return;
+    }
+
+    playbackMeasure = measure;
+    updateMeasureGridPlaybackMeasure();
   }
 
   function ensureIncludes(track: number, measure: number): boolean {
@@ -480,6 +322,7 @@ export function createMeasureGridController(
     render,
     applyConfig,
     setHighlightTargets,
+    setPlaybackMeasure,
     reflectValue,
     loadFromCmrt,
   };

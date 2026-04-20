@@ -52,3 +52,23 @@
 .piano-roll__note--both {
   background: linear-gradient(180deg, #c084fc, #9333ea);
 }
+
+.piano-roll__play-measure,
+.piano-roll__playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.piano-roll__play-measure {
+  background: rgb(234 179 8 / 0.18);
+  z-index: 0;
+}
+
+.piano-roll__playhead {
+  width: 2px;
+  background: #dc2626;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.7);
+  z-index: 3;
+}

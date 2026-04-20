@@ -15,6 +15,7 @@ import { getAppDomElements } from "./app-dom.ts";
 import { createAppendLog } from "./app-log.ts";
 import { initializeToneFallbackUi } from "./tone-fallback-ui.ts";
 import { getTargetValue } from "./app-target-value.ts";
+import { syncDawPlaybackVisuals } from "./app-daw-status-sync.ts";
 import { createAppToneInstrumentSettings } from "./app-tone-instrument-settings.ts";
 import { playCurrentToneChord } from "./app-tone-playback.ts";
 import {
@@ -38,6 +39,7 @@ import { DEFAULT_MEASURE, DEFAULT_TRACK } from "../daw/post-config.ts";
 import { createPianoRollPreviewController } from "../piano-roll/piano-roll-preview-controller.ts";
 import { getPlaybackButtonState, runPlaybackAction } from "../daw/playback.ts";
 import { sendMml } from "../daw/send-mml.ts";
+import { createDawStatusPollingController } from "../daw/status.ts";
 import { createMmlabcToSmfConverter } from "../smf/smf-export.ts";
 import { createSmfExportController } from "../smf/smf-export-controller.ts";
 import { STARTUP_CONNECTING_OVERLAY } from "../startup/startup-overlay.ts";
@@ -46,7 +48,6 @@ import { createTonePreviewController } from "../tone/tone-preview-controller.ts"
 import type { ToneChordPreviewInputSource } from "../tone/tone-chord-preview-sync.ts";
 
 type PlaybackBackend = "cmrt" | "tone" | null;
-
 const dom = getAppDomElements();
 const toneFallbackUi = initializeToneFallbackUi(dom);
 const appendLog = createAppendLog(dom.logEl);
@@ -74,18 +75,14 @@ let onToneInstrumentMmlChange = (): void => {};
 const toneInstrumentSettings = createAppToneInstrumentSettings({
   dom, storage, appendLog, onInstrumentMmlChange: () => onToneInstrumentMmlChange(),
 });
-
 let currentPlaybackBackend: PlaybackBackend = null;
 let cmrtRuntime: CmrtRuntime | null = null;
-
 function saveTargetValue(key: string, element: HTMLInputElement): void {
   saveTarget(storage, key, element);
 }
-
 function saveTextValue(key: string, value: string): void {
   saveText(storage, key, value);
 }
-
 function setLogVisible(visible: boolean): void {
   dom.logEl.hidden = !visible;
   dom.logToggleButtonEl.setAttribute("aria-expanded", visible ? "true" : "false");
@@ -135,6 +132,7 @@ const pianoRollPreview = createPianoRollPreviewController({
   getInput: getEffectiveChordInput,
   appendLog,
 });
+const dawStatusPolling = createDawStatusPollingController({ client: dawClient, statusEl: dom.dawStatusEl, onStatus: (status, timing) => syncDawPlaybackVisuals({ status, timing, chordMeasureEl: dom.chordMeasureEl, measureGridController, pianoRollPreview }) });
 
 const tonePreview = createTonePreviewController({
   getInput: getEffectiveChordInput,
@@ -296,6 +294,7 @@ syncPlaybackButtonState();
 void pianoRollPreview.sync();
 tonePreview.initialize();
 startupOverlay.show(STARTUP_CONNECTING_OVERLAY);
+dawStatusPolling.start();
 cmrtRuntime.start({
   shouldSelectChordTrack: !hasStoredChordTrack,
   shouldSelectBassTrack: !hasStoredBassTrack,
@@ -305,6 +304,7 @@ window.addEventListener("beforeunload", () => {
   toneFallbackUi.disconnect();
   toneInstrumentSettings.persistState();
   cmrtRuntime?.cleanup();
+  dawStatusPolling.stop();
   tonePreview.clearPlaybackReset();
   tonePreview.cancelPreview();
   chordAnalysisErrorBalloon.hide();
