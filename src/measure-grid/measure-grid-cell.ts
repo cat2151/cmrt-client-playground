@@ -3,6 +3,7 @@ import {
   type MeasureGridNavigationCaretOrigin,
   type MeasureGridNavigationSelectionBehavior,
 } from "./measure-grid-navigation.ts";
+import type { MeasureGridCacheState } from "./measure-grid-cache.ts";
 import type { MeasureGridCellHighlight } from "./measure-grid-targets.ts";
 
 export interface MeasureGridRenderedCellElements {
@@ -31,6 +32,25 @@ export function setMeasureGridCellPlayback(
   isPlaying: boolean
 ): void {
   shellEl.classList.toggle("measure-grid-cell--playing", isPlaying);
+}
+
+export function setMeasureGridCellCacheState(
+  shellEl: HTMLDivElement,
+  state: MeasureGridCacheState | null
+): void {
+  const states: MeasureGridCacheState[] = ["empty", "pending", "rendering", "ready", "error"];
+  for (const cacheState of states) {
+    shellEl.classList.toggle(
+      `measure-grid-cell--cache-${cacheState}`,
+      state === cacheState
+    );
+  }
+
+  if (state === null) {
+    delete shellEl.dataset.cacheState;
+  } else {
+    shellEl.dataset.cacheState = state;
+  }
 }
 
 export function setMeasureGridCellStatus(

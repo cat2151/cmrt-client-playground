@@ -2,6 +2,7 @@ import { dawClientErrorMessage, type DawClient } from "../daw/daw-client.ts";
 import { createDebouncedCallback } from "../utils/debounce.ts";
 import {
   focusMeasureGridInput,
+  setMeasureGridCellCacheState,
   setMeasureGridCellHighlight,
   setMeasureGridCellPlayback,
   setMeasureGridCellStatus,
@@ -27,6 +28,7 @@ import {
 } from "./measure-grid-targets.ts";
 import { getMeasureGridCellKey } from "./measure-grid-keys.ts";
 import { isStaleMeasureGridPostSync } from "./measure-grid-sync.ts";
+import type { MeasureGridCacheState } from "./measure-grid-cache.ts";
 
 export interface MeasureGridRowHeaderAction {
   label: string;
@@ -45,6 +47,7 @@ interface RenderMeasureGridOptions {
   renderedCells: Map<string, MeasureGridRenderedCellElements>;
   measureHeaders: Map<number, HTMLTableCellElement>;
   syncers: Map<string, MeasureGridSyncer>;
+  cacheStates: Map<string, MeasureGridCacheState>;
   highlightTargets: MeasureGridHighlightTargets;
   playbackMeasure: number | null;
   dawClient: DawClient;
@@ -206,6 +209,7 @@ function renderMeasureGridDataCell(
     getMeasureGridCellHighlight(track, measure, options.highlightTargets)
   );
   setMeasureGridCellPlayback(shellEl, measure === options.playbackMeasure);
+  setMeasureGridCellCacheState(shellEl, options.cacheStates.get(key) ?? null);
   input.addEventListener("input", () => {
     editVersion += 1;
     options.values.set(key, input.value);

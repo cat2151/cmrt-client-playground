@@ -1,5 +1,9 @@
 import { parseNonNegativeInteger } from "../daw/post-config.ts";
-import type { DawStatusResponse, DawStatusTiming } from "../daw/status.ts";
+import type {
+  DawStatusCacheCell,
+  DawStatusResponse,
+  DawStatusTiming,
+} from "../daw/status.ts";
 import type {
   PianoRollPlaybackLoop,
   PianoRollPlaybackPosition,
@@ -13,6 +17,7 @@ interface DawPlaybackVisualsOptions {
   chordMeasureEl: HTMLInputElement;
   measureGridController: {
     setPlaybackMeasure(measure: number | null): void;
+    setCacheCells(cells: DawStatusCacheCell[][] | null): void;
   };
   pianoRollPreview: {
     setPlaybackPosition(position: PianoRollPlaybackPosition | null): void;
@@ -22,6 +27,7 @@ interface DawPlaybackVisualsOptions {
 export function syncDawPlaybackVisuals(options: DawPlaybackVisualsOptions): void {
   const playbackMeasure = getDawPlaybackMeasure(options.status);
   options.measureGridController.setPlaybackMeasure(playbackMeasure);
+  options.measureGridController.setCacheCells(getDawCacheCells(options.status));
   options.pianoRollPreview.setPlaybackPosition(
     getPianoRollPlaybackPosition(
       options.status,
@@ -29,6 +35,12 @@ export function syncDawPlaybackVisuals(options: DawPlaybackVisualsOptions): void
       options.chordMeasureEl.value
     )
   );
+}
+
+export function getDawCacheCells(
+  status: DawStatusResponse | null
+): DawStatusCacheCell[][] | null {
+  return status?.cache.cells ?? null;
 }
 
 export function getDawPlaybackMeasure(status: DawStatusResponse | null): number | null {

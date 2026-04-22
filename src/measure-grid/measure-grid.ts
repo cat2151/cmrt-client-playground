@@ -1,6 +1,7 @@
 import { dawClientErrorMessage, type DawClient } from "../daw/daw-client.ts";
 import {
   setMeasureGridCellHighlight,
+  setMeasureGridCellCacheState,
   setMeasureGridCellPlayback,
   setMeasureGridCellStatus,
   setMeasureGridCellValue,
@@ -27,6 +28,11 @@ import {
   type MeasureGridRowHeaderAction,
   type MeasureGridSyncer,
 } from "./measure-grid-render.ts";
+import {
+  buildMeasureGridCacheStateMap,
+  type MeasureGridCacheCells,
+  type MeasureGridCacheState,
+} from "./measure-grid-cache.ts";
 import { getMmlsCellValue } from "./measure-grid-sync.ts";
 
 export {
@@ -66,6 +72,7 @@ export function createMeasureGridController(
   applyConfig(config: MeasureGridConfig): void;
   setHighlightTargets(targets: MeasureGridHighlightTargets): void;
   setPlaybackMeasure(measure: number | null): void;
+  setCacheCells(cells: MeasureGridCacheCells | null): void;
   reflectValue(track: number, measure: number, mml: string): void;
   loadFromCmrt(): Promise<void>;
 } {
@@ -84,6 +91,7 @@ export function createMeasureGridController(
   const measureGridRenderedCells = new Map<string, MeasureGridRenderedCellElements>();
   const measureGridMeasureHeaders = new Map<number, HTMLTableCellElement>();
   const measureGridSyncers = new Map<string, MeasureGridSyncer>();
+  let measureGridCacheStates = new Map<string, MeasureGridCacheState>();
   let measureGridConfig = { ...initialConfig };
   let lastFetchedEtag: string | null = null;
   let lastErrorMessage: string | null = null;
@@ -127,6 +135,12 @@ export function createMeasureGridController(
     }
   }
 
+  function updateMeasureGridCacheStates(): void {
+    for (const [key, cell] of measureGridRenderedCells.entries()) {
+      setMeasureGridCellCacheState(cell.shellEl, measureGridCacheStates.get(key) ?? null);
+    }
+  }
+
   function render(): void {
     renderMeasureGrid({
       elements,
@@ -136,6 +150,7 @@ export function createMeasureGridController(
       renderedCells: measureGridRenderedCells,
       measureHeaders: measureGridMeasureHeaders,
       syncers: measureGridSyncers,
+      cacheStates: measureGridCacheStates,
       highlightTargets: measureGridHighlightTargets,
       playbackMeasure,
       dawClient,
@@ -166,6 +181,11 @@ export function createMeasureGridController(
 
     playbackMeasure = measure;
     updateMeasureGridPlaybackMeasure();
+  }
+
+  function setCacheCells(cells: MeasureGridCacheCells | null): void {
+    measureGridCacheStates = buildMeasureGridCacheStateMap(cells);
+    updateMeasureGridCacheStates();
   }
 
   function ensureIncludes(track: number, measure: number): boolean {
@@ -323,6 +343,7 @@ export function createMeasureGridController(
     applyConfig,
     setHighlightTargets,
     setPlaybackMeasure,
+    setCacheCells,
     reflectValue,
     loadFromCmrt,
   };

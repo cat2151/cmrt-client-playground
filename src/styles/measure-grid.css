@@ -150,6 +150,18 @@
   min-width: 0;
 }
 
+.measure-grid-cell-shell::after {
+  content: "";
+  position: absolute;
+  right: 0.28rem;
+  bottom: 0.28rem;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .measure-grid-cell-preview,
 .measure-grid-cell {
   width: 100%;
@@ -217,6 +229,37 @@
   outline-offset: -2px;
 }
 
+.measure-grid-cell-shell.measure-grid-cell--cache-pending .measure-grid-cell-preview,
+.measure-grid-cell-shell.measure-grid-cell--cache-pending .measure-grid-cell {
+  border-color: #94a3b8;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--cache-pending::after {
+  background: #64748b;
+  opacity: 1;
+  animation: measure-grid-cache-pending-pulse 1.2s ease-in-out infinite;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--cache-rendering .measure-grid-cell-preview,
+.measure-grid-cell-shell.measure-grid-cell--cache-rendering .measure-grid-cell {
+  background: #e0f2fe;
+  border-color: #0284c7;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--cache-rendering::after {
+  background: #0284c7;
+  box-shadow: 0 0 0 4px rgb(2 132 199 / 0.2);
+  opacity: 1;
+  animation: measure-grid-cache-render-pulse 0.75s ease-in-out infinite;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--playing.measure-grid-cell--cache-rendering
+  .measure-grid-cell-preview,
+.measure-grid-cell-shell.measure-grid-cell--playing.measure-grid-cell--cache-rendering
+  .measure-grid-cell {
+  outline-color: #eab308;
+}
+
 .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell-preview,
 .measure-grid-cell-shell.measure-grid-cell--loading .measure-grid-cell,
 .measure-grid-cell-shell.measure-grid-cell--syncing .measure-grid-cell-preview,
@@ -228,4 +271,38 @@
 .measure-grid-cell-shell.measure-grid-cell--error .measure-grid-cell {
   background: #fef2f2;
   border-color: #ef4444;
+}
+
+.measure-grid-cell-shell.measure-grid-cell--cache-error::after {
+  content: "!";
+  display: grid;
+  place-items: center;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 1;
+}
+
+@keyframes measure-grid-cache-render-pulse {
+  0%,
+  100% {
+    transform: scale(0.86);
+  }
+
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes measure-grid-cache-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }

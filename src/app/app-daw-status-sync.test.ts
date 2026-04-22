@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DawStatusResponse } from "../daw/status.ts";
 import {
+  getDawCacheCells,
   getDawPlaybackMeasure,
   getPianoRollPlaybackPosition,
 } from "./app-daw-status-sync.ts";
@@ -60,6 +61,26 @@ describe("getDawPlaybackMeasure", () => {
         },
       })
     ).toBeNull();
+  });
+});
+
+describe("getDawCacheCells", () => {
+  it("returns the DAW status cache matrix for grid rendering state", () => {
+    const cells = [[{ state: "ready" }], [{ state: "pending" }, { state: "rendering" }]];
+
+    expect(
+      getDawCacheCells({
+        ...playingStatus,
+        cache: {
+          ...playingStatus.cache,
+          cells,
+        },
+      })
+    ).toBe(cells);
+  });
+
+  it("returns null when status is unavailable", () => {
+    expect(getDawCacheCells(null)).toBeNull();
   });
 });
 
